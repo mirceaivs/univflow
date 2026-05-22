@@ -9,7 +9,9 @@ COPY settings.gradle .
 COPY src src
 RUN chmod +x gradlew && JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew bootJar --no-daemon
 
-# Stage 2: Extractor
-FROM bellsoft/liberica-runtime-container:jdk-25-cds-slim-glibc AS extractor
+# Stage 2: Runtime
+FROM bellsoft/liberica-runtime-container:jdk-25-cds-slim-glibc
 WORKDIR /app
-COPY --from=builder /app/build/libs
+COPY --from=builder /app/build/libs/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

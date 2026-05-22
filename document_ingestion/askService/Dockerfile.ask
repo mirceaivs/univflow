@@ -41,4 +41,4 @@ USER cloudrun
 EXPOSE 8080
 
 # Comanda de start pentru managementul memoriei sub Cloud Run
-ENTRYPOINT ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--max-requests", "1000", "--max-requests-jitter", "100", "-b", "0.0.0.0:8080"]
+ENTRYPOINT ["sh", "-c", "gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --max-requests 1000 --max-requests-jitter 100 -b 0.0.0.0:${PORT:-8080}"]

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import json
 import random
@@ -12,6 +13,7 @@ import concurrent.futures
 import urllib.parse
 import re
 import tempfile
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -70,29 +72,6 @@ pipeline = MultimodalSemanticPipeline(
     credentials=credentials 
 )
 
-def fetch_job() -> tuple:
-    with psycopg.connect(DB_DSN) as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                WITH cte AS (
-                    SELECT job_id FROM rag_system.ingestion_jobs
-                    WHERE status = 'PENDING'
-                    ORDER BY created_at ASC
-                    LIMIT 1
-                    FOR UPDATE SKIP LOCKED
-                )
-                UPDATE rag_system.ingestion_jobs
-                SET status = 'PROCESSING', updated_at = CURRENT_TIMESTAMP
-                FROM cte
-                WHERE rag_system.ingestion_jobs.job_id = cte.job_id
-                RETURNING rag_system.ingestion_jobs.job_id, 
-                          rag_system.ingestion_jobs.file_path, 
-                          rag_system.ingestion_jobs.course_id;
-            """)
-            job = cur.fetchone()
-            conn.commit()
-            return job
-
 def extract_graph_data(text_chunk: str) -> GraphExtraction:
     prompt = (
         "Analizează următorul text în limba română și extrage un graf de cunoștințe cuprinzător. "
@@ -101,115 +80,163 @@ def extract_graph_data(text_chunk: str) -> GraphExtraction:
     )
     return structured_llm.invoke(prompt)
 
-def process_job(job_id: str, gcs_uri: str, course_id: str):
+def is_retryable_exception(e):
+    error_str = str(e).lower()
+    return "429" in error_str or "quota" in error_str or "exhausted" in error_str or "500" in error_str or "503" in error_str
+
+@retry(
+    stop=stop_after_attempt(6),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
+    retry=retry_if_exception(is_retryable_exception),
+    reraise=True
+)
+def fetch_ai_data_with_retry(chunk_obj):
+    emb = pipeline.embeddings.embed_query(chunk_obj.page_content)
+    graph = extract_graph_data(chunk_obj.page_content)
+    return chunk_obj, emb, graph
+
+def fetch_ai_data(chunk_obj):
+    return fetch_ai_data_with_retry(chunk_obj)
+
+def process_single_execution():
+    bucket_name = os.getenv("BUCKET_NAME")
+    file_path = os.getenv("FILE_PATH")
+
+    if not bucket_name or not file_path:
+        print("EROARE: BUCKET_NAME sau FILE_PATH lipsesc din variabilele de mediu.")
+        sys.exit(1)
+
+    # 1. Filtrare Arhitecturală: Ieșire grațioasă pentru fișiere neprocesabile (diagrame, etc.)
+    if not file_path.lower().endswith(".pdf"):
+        print(f"[{file_path}] Nu este un PDF procesabil. Se închide worker-ul grațios (exit 0).")
+        sys.exit(0)
+
+    # 3. Parametrizare: Parsare job_id și course_id din calea GCS
+    # Format așteptat: ingestion_artifacts/{course_id}/{job_id}_{filename}
+    parts = file_path.split("/")
+    if len(parts) >= 3 and parts[0] == "ingestion_artifacts":
+        course_id = parts[1]
+        filename_with_job = parts[-1]
+        if "_" in filename_with_job:
+            job_id = filename_with_job.split("_", 1)[0]
+        else:
+            job_id = "unknown_job_" + str(int(time.time()))
+    else:
+        # Fallback dacă fișierul a fost încărcat direct într-un folder atipic
+        course_id = "default_course"
+        job_id = "job_" + str(int(time.time()))
+
+    gcs_uri = f"gs://{bucket_name}/{file_path}"
+    print(f"[{job_id}] Acquired File: {file_path}. Processing for course {course_id}...")
     
-    raw_filename = urllib.parse.unquote(os.path.basename(gcs_uri))
-    
-    
-    real_filename = re.sub(r'^([0-9a-fA-F\-]+_|[a-zA-Z0-9]+_)', '', raw_filename)
-    
-    
-    temp_dir = tempfile.gettempdir()
-    temp_pdf_path = os.path.join(temp_dir, f"{job_id}_{real_filename}")
-    blob = None
-    
+    # 2 & 4. Execuție unică și Terminație
     try:
-        bucket_name = gcs_uri.split("/")[2]
-        blob_name = "/".join(gcs_uri.split("/")[3:])
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(blob_name)
+        # Marcăm ca PROCESSING în BD
+        with psycopg.connect(DB_DSN) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE rag_system.ingestion_jobs
+                    SET status = 'PROCESSING', updated_at = CURRENT_TIMESTAMP
+                    WHERE job_id = %s AND status = 'PENDING'
+                """, (job_id,))
+            conn.commit()
+
+        raw_filename = urllib.parse.unquote(os.path.basename(gcs_uri))
+        real_filename = re.sub(r'^([0-9a-fA-F\-]+_|[a-zA-Z0-9]+_)', '', raw_filename)
         
-        print(f"[{job_id}] Se descarcă {gcs_uri} ...")
+        temp_dir = tempfile.gettempdir()
+        temp_pdf_path = os.path.join(temp_dir, f"{job_id}_{real_filename}")
+        blob = None
+        
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(file_path)
+        
+        print(f"[{job_id}] Se descarcă {gcs_uri} către {temp_pdf_path}...")
         blob.download_to_filename(temp_pdf_path)
 
-        print(f"[{job_id}] Începe chunking-ul multimodal (GCS & Markdown Injection)...")
-        bucket_name = os.getenv("GCS_BUCKET_NAME")
-        
+        print(f"[{job_id}] Începe chunking-ul multimodal...")
+        # GCS_BUCKET_NAME este utilizat în pipeline pentru adăugarea diagramelor/imaginilor
+        app_bucket_name = os.getenv("GCS_BUCKET_NAME", bucket_name)
         
         semantic_chunks = pipeline.process_document(
             temp_pdf_path, 
             course_id, 
             storage_client, 
-            bucket_name, 
+            app_bucket_name, 
             job_id
         )
 
+        total_chunks = len(semantic_chunks)
+        print(f"[{job_id}] Începe preluarea datelor AI în paralel pentru {total_chunks} chunk-uri...")
+
+        ai_results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+            futures = [executor.submit(fetch_ai_data, c) for c in semantic_chunks]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    ai_results.append(future.result())
+                except Exception as thread_err:
+                    print(f"[{job_id}] Eroare la generarea AI pentru un chunk: {thread_err}")
+                    raise thread_err
+
+        print(f"[{job_id}] Date AI preluate. Începe inserarea în PostgreSQL...")
+
+        # 6. Atomicitate: Bloc try-except cu rollback explicit
         with psycopg.connect(DB_DSN) as conn:
-            conn.execute("LOAD 'age';")
-            conn.execute("SET search_path = ag_catalog, \"$user\", public;")
-            
-            with conn.cursor() as cur:
-                total_chunks = len(semantic_chunks)
-                print(f"[{job_id}] Începe preluarea datelor AI în paralel pentru {total_chunks} chunk-uri...")
+            try:
+                conn.execute("LOAD 'age';")
+                conn.execute("SET search_path = ag_catalog, \"$user\", public;")
                 
-                def fetch_ai_data(chunk_obj, max_retries=6):
-                    for attempt in range(max_retries):
-                        try:
-                            emb = pipeline.embeddings.embed_query(chunk_obj.page_content)
-                            graph = extract_graph_data(chunk_obj.page_content)
-                            return chunk_obj, emb, graph
-                        except Exception as e:
-                            error_str = str(e).lower()
-                            if "429" in error_str or "quota" in error_str or "exhausted" in error_str:
-                                sleep_time = (2 ** attempt) + random.uniform(0.1, 1.5)
-                                time.sleep(sleep_time)
-                            else:
-                                raise e
-                    raise Exception(f"Eșec după {max_retries} încercări pe chunk-ul curent.")
+                with conn.cursor() as cur:
+                    for idx, (chunk, embedding_vector, graph_data) in enumerate(ai_results):
+                        # Inserare text și embed
+                        cur.execute("""
+                            INSERT INTO rag_system.document_chunks (job_id, content, embedding, metadata)
+                            VALUES (%s, %s, %s, %s)
+                        """, (job_id, chunk.page_content, str(embedding_vector), json.dumps(chunk.metadata)))
 
-                ai_results = []
-                with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-                    futures = [executor.submit(fetch_ai_data, c) for c in semantic_chunks]
-                    for future in concurrent.futures.as_completed(futures):
-                        try:
-                            ai_results.append(future.result())
-                        except Exception as thread_err:
-                            print(f"[{job_id}] Eroare la generarea AI pentru un chunk: {thread_err}")
+                        # Inserare noduri graf
+                        if graph_data and hasattr(graph_data, 'nodes') and graph_data.nodes:
+                            for node in graph_data.nodes:
+                                cur.execute("""
+                                    SELECT * FROM cypher('document_knowledge_graph', $$
+                                        MERGE (n:Entity {id: $id})
+                                        SET n.label = $label, n.course_id = $course
+                                        RETURN n
+                                    $$, %(params)s) AS (v agtype);
+                                """, {"params": json.dumps({
+                                    "id": node.id,
+                                    "label": node.label,
+                                    "course": course_id
+                                })})
 
-                print(f"[{job_id}] Date AI preluate. Începe inserarea în PostgreSQL...")
+                        # Inserare muchii graf
+                        if graph_data and hasattr(graph_data, 'edges') and graph_data.edges:
+                            for edge in graph_data.edges:
+                                cur.execute("""
+                                    SELECT * FROM cypher('document_knowledge_graph', $$
+                                        MATCH (a:Entity {id: $source}), (b:Entity {id: $target})
+                                        MERGE (a)-[r:RELATION {type: $relation}]->(b)
+                                        RETURN r
+                                    $$, %(params)s) AS (v agtype);
+                                """, {"params": json.dumps({
+                                    "source": edge.source,
+                                    "target": edge.target,
+                                    "relation": edge.relation
+                                })})
 
-                for idx, (chunk, embedding_vector, graph_data) in enumerate(ai_results):
-                    cur.execute("""
-                        INSERT INTO rag_system.document_chunks (job_id, content, embedding, metadata)
-                        VALUES (%s, %s, %s, %s)
-                    """, (job_id, chunk.page_content, str(embedding_vector), json.dumps(chunk.metadata)))
+                        progress = int(((idx + 1) / total_chunks) * 100)
+                        cur.execute("""
+                            UPDATE rag_system.ingestion_jobs
+                            SET progress = %s WHERE job_id = %s
+                        """, (progress, job_id))
+                
+                conn.commit()
+            except Exception as db_err:
+                conn.rollback()
+                raise Exception(f"Eroare la inserarea în DB (rollback executat explicit): {db_err}")
 
-                    if graph_data and hasattr(graph_data, 'nodes') and graph_data.nodes:
-                        for node in graph_data.nodes:
-                            cur.execute("""
-                                SELECT * FROM cypher('document_knowledge_graph', $$
-                                    MERGE (n:Entity {id: $id})
-                                    SET n.label = $label, n.course_id = $course
-                                    RETURN n
-                                $$, %(params)s) AS (v agtype);
-                            """, {"params": json.dumps({
-                                "id": node.id,
-                                "label": node.label,
-                                "course": course_id
-                            })})
-
-                    if graph_data and hasattr(graph_data, 'edges') and graph_data.edges:
-                        for edge in graph_data.edges:
-                            cur.execute("""
-                                SELECT * FROM cypher('document_knowledge_graph', $$
-                                    MATCH (a:Entity {id: $source}), (b:Entity {id: $target})
-                                    MERGE (a)-[r:RELATION {type: $relation}]->(b)
-                                    RETURN r
-                                $$, %(params)s) AS (v agtype);
-                            """, {"params": json.dumps({
-                                "source": edge.source,
-                                "target": edge.target,
-                                "relation": edge.relation
-                            })})
-
-                    progress = int(((idx + 1) / total_chunks) * 100)
-                    cur.execute("""
-                        UPDATE rag_system.ingestion_jobs
-                        SET progress = %s WHERE job_id = %s
-                    """, (progress, job_id))
-            
-            conn.commit()
-
+        # Finalizarea statusului job-ului
         with psycopg.connect(DB_DSN) as conn:
             conn.execute("""
                 UPDATE rag_system.ingestion_jobs
@@ -220,36 +247,35 @@ def process_job(job_id: str, gcs_uri: str, course_id: str):
         print(f"[{job_id}] Procesare completă!")
 
     except Exception as e:
-        print(f"[{job_id}] EROARE: {str(e)}")
-        with psycopg.connect(DB_DSN) as conn:
-            conn.execute("""
-                UPDATE rag_system.ingestion_jobs
-                SET status = 'FAILED', error_message = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE job_id = %s
-            """, (str(e), job_id))
+        print(f"[{job_id}] EROARE FATALĂ: {str(e)}")
+        try:
+            with psycopg.connect(DB_DSN) as conn:
+                conn.execute("""
+                    UPDATE rag_system.ingestion_jobs
+                    SET status = 'FAILED', error_message = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE job_id = %s
+                """, (str(e), job_id))
+        except Exception as db_update_err:
+            print(f"Nu s-a putut actualiza statusul de eșec în DB: {db_update_err}")
+        finally:
+            # 4. Terminație cu eroare
+            sys.exit(1)
+            
     finally:
         try:
-            if os.path.exists(temp_pdf_path):
+            if 'temp_pdf_path' in locals() and os.path.exists(temp_pdf_path):
                 os.remove(temp_pdf_path)
         except Exception:
             pass
 
         try:
-            if blob and blob.exists():
+            if 'blob' in locals() and blob and blob.exists():
                 blob.delete()
         except Exception:
             pass
-
-def worker_loop():
-    print("GraphRAG Worker Daemon Initialized and waiting for jobs...")
-    while True:
-        job = fetch_job()
-        if job:
-            job_id, gcs_uri, course_id = job
-            print(f"Acquired Job: {job_id}. Processing...")
-            process_job(job_id, gcs_uri, course_id)
-        else:
-            time.sleep(5)
+            
+    # 4. Terminație cu succes
+    sys.exit(0)
 
 if __name__ == "__main__":
-    worker_loop()
+    process_single_execution()

@@ -40,5 +40,6 @@ USER cloudrun
 # Expunem portul standard pentru Cloud Run (8080)
 EXPOSE 8080
 
-# Comanda de start pentru managementul memoriei sub Cloud Run (adaugă bind pe 0.0.0.0:8080)
-ENTRYPOINT ["gunicorn", "ingestService:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--max-requests", "1000", "--max-requests-jitter", "100", "--timeout", "0", "-b", "0.0.0.0:8080"]
+# Comanda de start pentru Cloud Run Service (API-ul REST)
+# Pentru Cloud Run Job (worker.py), suprascrieți comanda containerului cu: command: "python", args: "worker.py"
+CMD ["sh", "-c", "gunicorn ingestService:app -w 4 -k uvicorn.workers.UvicornWorker --max-requests 1000 --max-requests-jitter 100 --timeout 0 -b 0.0.0.0:${PORT:-8080}"]
