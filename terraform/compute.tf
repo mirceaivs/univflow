@@ -39,11 +39,16 @@ resource "google_compute_instance" "db_vm" {
   network_interface {
     network    = "default"
     network_ip = google_compute_address.db_internal_ip.address
-    # FARA access_config block = FARA IP Public
+    
+    # Adaugam access_config gol pentru a atribui un IP public ephemeral (pentru internet egress la startup)
+    access_config {}
   }
 
   metadata_startup_script = <<-EOT
     #!/bin/bash
+    # Așteaptă ca rețeaua să fie disponibilă
+    sleep 10
+    
     apt-get update
     apt-get install -y ca-certificates curl gnupg git
     
@@ -55,9 +60,15 @@ resource "google_compute_instance" "db_vm" {
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     
     cd /opt
-    git clone https://github.com/${var.github_owner}/${var.github_repo}.git
-    cd ${var.github_repo}/initBazaDeDate
+    if [ ! -d "${var.github_repo}" ]; then
+      git clone https://github.com/${var.github_owner}/${var.github_repo}.git
+    else
+      cd ${var.github_repo}
+      git pull
+      cd ..
+    fi
     
+    cd ${var.github_repo}/initBazaDeDate
     docker compose up -d
   EOT
 

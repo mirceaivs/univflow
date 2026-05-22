@@ -27,11 +27,6 @@ secret/
 *.njsproj
 *.sln
 
-# Bază de date locală (Contine parole și inițializări)
-initBazaDeDate/
-Dockerfile.postgres
-init.sql
-
 # Excludere folder backup local
 backup local aplicatie/
 backup\ local\ aplicatie/

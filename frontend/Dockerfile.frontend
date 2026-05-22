@@ -18,7 +18,7 @@ ENV PORT=80
 ENV BACKEND_URL=http://java-backend:8080
 
 # Filtrăm envsubst să înlocuiască doar PORT și BACKEND_URL, protejând variabilele interne Nginx ($host, $uri etc.)
-ENV NGINX_ENVSUBST_FILTER='$PORT $BACKEND_URL'
+ENV NGINX_ENVSUBST_FILTER="\$PORT \$BACKEND_URL"
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

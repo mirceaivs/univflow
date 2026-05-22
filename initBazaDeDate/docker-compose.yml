@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  unified-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: unified_ai_postgres
+    restart: always
+    # Alocăm memorie partajată extinsă pentru procesările complexe de vectori și grafuri
+    shm_size: '512mb'
+    environment:
+      POSTGRES_USER: enterprise_admin
+      POSTGRES_PASSWORD: secure_password_2026
+      POSTGRES_DB: shared_knowledge_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_unified:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enterprise_admin -d shared_knowledge_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_unified:
