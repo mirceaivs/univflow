@@ -37,9 +37,5 @@ ENV GCS_BASE_URL=https://storage.googleapis.com
 RUN useradd -m cloudrun && chown -R cloudrun:cloudrun /app
 USER cloudrun
 
-# Expunem portul standard pentru Cloud Run (8080)
-EXPOSE 8080
-
-# Comanda de start pentru Cloud Run Service (REST API-ul de ingestie)
-ENTRYPOINT ["sh", "-c", "gunicorn ingestService:app -w 4 -k uvicorn.workers.UvicornWorker --max-requests 1000 --max-requests-jitter 100 --timeout 0 -b 0.0.0.0:${PORT:-8080}"]
-
+# Pornim worker-ul direct pentru Cloud Run Job
+ENTRYPOINT ["python", "worker.py"]
