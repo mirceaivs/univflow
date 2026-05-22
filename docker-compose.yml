@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  db:
+    build:
+      context: ./initBazaDeDate
+      dockerfile: Dockerfile.postgres
+    container_name: unified_ai_postgres
+    restart: unless-stopped
+    shm_size: '512mb'
+    environment:
+      POSTGRES_USER: enterprise_admin
+      POSTGRES_PASSWORD: secure_password_2026
+      POSTGRES_DB: shared_knowledge_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./initBazaDeDate/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enterprise_admin -d shared_knowledge_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-net
+
+  java-backend:
+    build:
+      context: ./univflow
+      dockerfile: Dockerfile.java
+    container_name: java-backend-cds
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/shared_knowledge_db
+      - PYTHON_SERVICE_BASE_URL=http://ingest-service:8080
+      - PYTHON_SERVICE_ASK_URL=http://ask-service:8080
+      - PYTHON_SERVICE_INGEST_URL=http://ingest-service:8080
+      - "MAIL_PASSWORD=vlyc iegd gwzj liqs"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  ask-service:
+    build:
+      context: ./document_ingestion/askService
+      dockerfile: Dockerfile.ask
+    container_name: ask-service-python
+    restart: unless-stopped
+    ports:
+      - "8001:8080"
+    env_file:
+      - ./document_ingestion/askService/.env
+    environment:
+      - DB_USER=enterprise_admin
+      - DB_PASS=secure_password_2026
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=shared_knowledge_db
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secret/serviceaccount.json
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../secret/serviceaccount.txt:/app/secret/serviceaccount.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  ingest-service:
+    build:
+      context: ./document_ingestion/ingestService
+      dockerfile: Dockerfile.ingest
+    container_name: ingest-service-python
+    restart: unless-stopped
+    ports:
+      - "8000:8080"
+    env_file:
+      - ./document_ingestion/ingestService/.env
+    environment:
+      - DB_USER=enterprise_admin
+      - DB_PASS=secure_password_2026
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=shared_knowledge_db
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secret/serviceaccount.json
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../secret/serviceaccount.txt:/app/secret/serviceaccount.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  ingest-worker:
+    build:
+      context: ./document_ingestion/ingestService
+      dockerfile: Dockerfile.ingest
+    container_name: ingest-worker-python
+    restart: unless-stopped
+    entrypoint: ["python", "worker.py"]
+    env_file:
+      - ./document_ingestion/ingestService/.env
+    environment:
+      - DB_USER=enterprise_admin
+      - DB_PASS=secure_password_2026
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=shared_knowledge_db
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secret/serviceaccount.json
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../secret/serviceaccount.txt:/app/secret/serviceaccount.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: frontend-react-vite
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - java-backend
+    networks:
+      - microservices-net
+
+volumes:
+  pgdata:
+
+networks:
+  microservices-net:
+    driver: bridge
+
