@@ -28,9 +28,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copiem codul sursă al serviciului
 COPY . .
 
-# Copiem cheia de service account dacă este prezentă și setăm drepturile
-COPY --chown=cloudrun:cloudrun service-account.json* /app/service-account.json
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json
 ENV GCS_BASE_URL=https://storage.googleapis.com
 
 # Creăm utilizatorul non-root cloudrun pentru securitate sporită

@@ -35,3 +35,26 @@ init.sql
 # Excludere folder backup local
 backup local aplicatie/
 backup\ local\ aplicatie/
+
+# Ignoră fișierele cu valori reale de variabile (unde pui parole, secrete, chei)
+*.tfvars
+*.tfvars.json
+
+# Ignoră fișierele de configurare locală ale utilizatorului
+.terraformrc
+terraform.rc
+
+# Ignoră folderul local în care Terraform descarcă providerii și modulele
+.terraform/
+
+# Ignoră fișierele de stare (State-ul local conține TOATE secretele în clar!)
+*.tfstate
+*.tfstate.*
+
+# Ignoră fișierele de crash log sau planuri salvate local care pot conține date sensibile
+crash.log
+*.tfplan
+
+# Ignoră fișierele .env locale (dacă ai salvat variabile de mediu acolo)
+.env
+.env.*
