@@ -345,3 +345,16 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
     google_secret_manager_secret_version.service_account_key_version
   ]
 }
+
+# --- 6. IAM Permissions for External Service Account to trigger Cloud Run Job ---
+resource "google_project_iam_member" "external_sa_run_developer" {
+  project = var.project_id
+  role    = "roles/run.developer"
+  member  = "serviceAccount:test-sa-platform@wave27-mivascu-447311.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "external_sa_service_account_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:test-sa-platform@wave27-mivascu-447311.iam.gserviceaccount.com"
+}
