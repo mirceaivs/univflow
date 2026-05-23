@@ -44,6 +44,10 @@ resource "google_compute_instance" "db_vm" {
     access_config {}
   }
 
+  service_account {
+    scopes = ["cloud-platform"]
+  }
+
   metadata_startup_script = <<-EOT
     #!/bin/bash
     export DEBIAN_FRONTEND=noninteractive
