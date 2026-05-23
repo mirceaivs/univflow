@@ -1,6 +1,6 @@
 import os
 import uuid
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse
 from google.cloud import storage
 import psycopg
@@ -48,15 +48,84 @@ def verify_internal_access(x_internal_service_key: str = Header(...)):
         raise HTTPException(status_code=403, detail="Forbidden: Invalid Service Key")
 
 
+def trigger_worker_job(bucket_name: str, file_path: str):
+    project_id = os.getenv("PROJECT_ID")
+    region = os.getenv("REGION")
+    job_name = os.getenv("WORKER_JOB_NAME", "ingest-worker-job")
+
+    if not project_id or not region:
+        print("[TRIGGER] Warning: PROJECT_ID or REGION not set. Cannot trigger Cloud Run Job.", flush=True)
+        return
+
+    print(f"[TRIGGER] Triggering job {job_name} in {region} for project {project_id}...", flush=True)
+
+    try:
+        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if credentials_path and os.path.exists(credentials_path):
+            credentials = service_account.Credentials.from_service_account_file(
+                credentials_path,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+        else:
+            import google.auth
+            credentials, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+
+        import google.auth.transport.requests
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        access_token = credentials.token
+
+        url = f"https://{region}-run.googleapis.com/v2/projects/{project_id}/locations/{region}/jobs/{job_name}:run"
+
+        payload = {
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "env": [
+                            {"name": "BUCKET_NAME", "value": bucket_name},
+                            {"name": "FILE_PATH", "value": file_path}
+                        ]
+                    }
+                ]
+            }
+        }
+
+        import urllib.request
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+
+        with urllib.request.urlopen(req) as response:
+            resp_body = response.read().decode("utf-8")
+            print(f"[TRIGGER] Success triggering Cloud Run Job: {resp_body}", flush=True)
+    except Exception as e:
+        import traceback
+        print(f"[TRIGGER] Error triggering job {job_name}: {e}", flush=True)
+        traceback.print_exc()
+        if hasattr(e, "read"):
+            try:
+                print(f"[TRIGGER] Error response body: {e.read().decode('utf-8')}", flush=True)
+            except Exception:
+                pass
+
 
 @app.post("/api/ingest")
 async def ingest_documents(
+    background_tasks: BackgroundTasks,
     course_id: str = Form(...),
     files: List[UploadFile] = File(...), 
     bucket = Depends(get_gcs_bucket),
     _: None = Depends(verify_internal_access)
 ):
-    print(f"\n[INGEST] Ingestion Started for course: {course_id}")
+    print(f"\n[INGEST] Ingestion Started for course: {course_id}", flush=True)
     created_jobs = []
     
     for file in files:
@@ -78,9 +147,14 @@ async def ingest_documents(
                         VALUES (%s, %s, %s, 'PENDING')
                     """, (job_id, course_id, gcs_uri))
             
+            gcs_file_path = f"ingestion_artifacts/{course_id}/{job_id}_{file.filename}"
+            background_tasks.add_task(trigger_worker_job, GCS_BUCKET_NAME, gcs_file_path)
+
             created_jobs.append({"job_id": job_id, "filename": file.filename})
         except Exception as e:
-            print(f"Eroare la fișierul {file.filename}: {str(e)}")
+            import traceback
+            print(f"Eroare la fișierul {file.filename}: {str(e)}", flush=True)
+            traceback.print_exc()
             continue
 
     if not created_jobs:

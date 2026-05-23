@@ -17,12 +17,6 @@ resource "google_cloud_run_v2_service" "frontend" {
   iap_enabled = true
 
   template {
-    vpc_access {
-      egress = "ALL_TRAFFIC"
-      network_interfaces {
-        network = "default"
-      }
-    }
     containers {
       image = local.dummy_image
       env {
@@ -42,11 +36,11 @@ resource "google_cloud_run_v2_service" "frontend" {
 resource "google_cloud_run_v2_service" "java_backend" {
   name     = "java-backend-service"
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     vpc_access {
-      egress = "ALL_TRAFFIC"
+      egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {
         network = "default"
       }
@@ -87,6 +81,15 @@ resource "google_cloud_run_v2_service" "java_backend" {
           }
         }
       }
+      env {
+        name = "MAIL_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.mail_password.secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
 
@@ -96,7 +99,8 @@ resource "google_cloud_run_v2_service" "java_backend" {
   depends_on = [
     google_project_service.apis,
     google_secret_manager_secret_version.db_password_version,
-    google_secret_manager_secret_version.internal_api_key_version
+    google_secret_manager_secret_version.internal_api_key_version,
+    google_secret_manager_secret_version.mail_password_version
   ]
 }
 
@@ -104,10 +108,11 @@ resource "google_cloud_run_v2_service" "java_backend" {
 resource "google_cloud_run_v2_service" "ingest_service" {
   name     = "ingest-service"
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     vpc_access {
+      egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {
         network = "default"
       }
@@ -131,8 +136,20 @@ resource "google_cloud_run_v2_service" "ingest_service" {
         value = google_storage_bucket.ingestion_bucket.name
       }
       env {
+        name  = "PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "REGION"
+        value = var.region
+      }
+      env {
+        name  = "WORKER_JOB_NAME"
+        value = google_cloud_run_v2_job.ingest_worker.name
+      }
+      env {
         name  = "GOOGLE_APPLICATION_CREDENTIALS"
-        value = "/secrets/serviceaccount.json" # SA va citi cheia din secret si o va varsa ca fisier (optional, sau putem folosi ADC direct, dar ai cerut mapare)
+        value = "/secrets/serviceaccount.json"
       }
       env {
         name = "DB_PASS"
@@ -152,7 +169,6 @@ resource "google_cloud_run_v2_service" "ingest_service" {
           }
         }
       }
-      # Pentru service_account_key ca fisier
       volume_mounts {
         name       = "sa-key-volume"
         mount_path = "/secrets"
@@ -185,10 +201,11 @@ resource "google_cloud_run_v2_service" "ingest_service" {
 resource "google_cloud_run_v2_service" "ask_service" {
   name     = "ask-service"
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     vpc_access {
+      egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {
         network = "default"
       }
