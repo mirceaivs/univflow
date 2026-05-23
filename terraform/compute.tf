@@ -46,19 +46,19 @@ resource "google_compute_instance" "db_vm" {
 
   metadata_startup_script = <<-EOT
     #!/bin/bash
-    # Așteaptă ca rețeaua să fie disponibilă
-    sleep 10
+    export DEBIAN_FRONTEND=noninteractive
     
+    # Install Google Cloud Ops Agent for logging
+    curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+    bash add-google-cloud-ops-agent-repo.sh --also-install
+
     apt-get update
-    apt-get install -y ca-certificates curl gnupg git
-    
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-    echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt-get update
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    
+    apt-get install -yq git curl
+
+    # Install Docker using the convenience script
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+
     cd /opt
     if [ ! -d "${var.github_repo}" ]; then
       git clone https://github.com/${var.github_owner}/${var.github_repo}.git
@@ -67,7 +67,7 @@ resource "google_compute_instance" "db_vm" {
       git pull
       cd ..
     fi
-    
+
     cd ${var.github_repo}/initBazaDeDate
     docker compose up -d
   EOT
@@ -85,7 +85,7 @@ resource "google_compute_firewall" "db_firewall_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["0.0.0.0/0", "35.235.240.0/20"]
+  source_ranges = ["35.235.240.0/20"]
   target_tags   = ["univflow-db"]
   depends_on    = [google_project_service.apis]
 }
