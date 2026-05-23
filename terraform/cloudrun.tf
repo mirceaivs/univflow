@@ -242,6 +242,10 @@ resource "google_cloud_run_v2_service" "ask_service" {
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name  = "VERTEX_AI_PROJECT_ID"
         value = "wave27-mivascu-447311"
       }
       env {
@@ -341,6 +345,10 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         }
         env {
           name  = "GOOGLE_CLOUD_PROJECT"
+          value = var.project_id
+        }
+        env {
+          name  = "VERTEX_AI_PROJECT_ID"
           value = "wave27-mivascu-447311"
         }
         env {

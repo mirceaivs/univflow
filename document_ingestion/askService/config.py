@@ -17,7 +17,7 @@ if not INTERNAL_API_KEY:
 
 LLM_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash")
 LOCATION = os.getenv("LOCATION", "global")
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+PROJECT_ID = os.getenv("VERTEX_AI_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
 VECTOR_TABLE_NAME = "document_chunks"
 HISTORY_TABLE_NAME = "chat_history"

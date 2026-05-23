@@ -52,9 +52,11 @@ DB_DSN = (
 
 storage_client = storage.Client(credentials=credentials)
 
+ai_project_id = os.getenv("VERTEX_AI_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+
 llm = ChatGoogleGenerativeAI(
     model=GEMINI_MODEL_NAME,
-    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+    project=ai_project_id,
     location=os.getenv("GOOGLE_CLOUD_LOCATION", "global"),
     credentials=credentials,
     temperature=0.0,
@@ -67,7 +69,7 @@ structured_llm = llm.with_structured_output(
 )
 
 pipeline = MultimodalSemanticPipeline(
-    project_id=os.getenv("GOOGLE_CLOUD_PROJECT"),
+    project_id=ai_project_id,
     location=os.getenv("LOCATION", "global"),
     credentials=credentials 
 )
