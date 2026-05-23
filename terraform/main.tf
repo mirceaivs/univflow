@@ -7,7 +7,8 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com",
     "storage-component.googleapis.com",
     "secretmanager.googleapis.com",
-    "iap.googleapis.com"
+    "iap.googleapis.com",
+    "aiplatform.googleapis.com"
   ])
   service = each.value
   disable_on_destroy = false
@@ -51,4 +52,31 @@ resource "google_storage_bucket_iam_member" "public_diagrams_viewer" {
   bucket = google_storage_bucket.public_diagrams_bucket.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
+}
+
+# --- Service Account GCS Access ---
+# 1. Native Service Account
+resource "google_storage_bucket_iam_member" "ingestion_bucket_native_sa_admin" {
+  bucket = google_storage_bucket.ingestion_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_storage_bucket_iam_member" "public_diagrams_native_sa_admin" {
+  bucket = google_storage_bucket.public_diagrams_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
+}
+
+# 2. External Service Account (used for AI access context, which also does bucket operations)
+resource "google_storage_bucket_iam_member" "ingestion_bucket_external_sa_admin" {
+  bucket = google_storage_bucket.ingestion_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:test-sa-platform@wave27-mivascu-447311.iam.gserviceaccount.com"
+}
+
+resource "google_storage_bucket_iam_member" "public_diagrams_external_sa_admin" {
+  bucket = google_storage_bucket.public_diagrams_bucket.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:test-sa-platform@wave27-mivascu-447311.iam.gserviceaccount.com"
 }
