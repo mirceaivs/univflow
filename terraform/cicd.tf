@@ -190,7 +190,7 @@ resource "google_cloudbuild_trigger" "worker_job_trigger" {
     }
   }
 
-  included_files = ["document_ingestion/ingestService/worker.py", "document_ingestion/ingestService/Dockerfile.worker", "document_ingestion/ingestService/requirements.txt"]
+  included_files = ["document_ingestion/ingestService/**"]
 
   build {
     step {
