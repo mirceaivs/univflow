@@ -15,7 +15,7 @@ INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
 if not INTERNAL_API_KEY:
     raise ValueError("Lipsește INTERNAL_API_KEY din fișierul .env")
 
-LLM_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.1-flash-lite")
+LLM_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash")
 LOCATION = os.getenv("LOCATION", "global")
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
 

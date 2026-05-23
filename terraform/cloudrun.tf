@@ -90,6 +90,12 @@ resource "google_cloud_run_v2_service" "java_backend" {
           }
         }
       }
+      resources {
+        limits = {
+          cpu    = "2"
+          memory = "2Gi"
+        }
+      }
     }
   }
 
@@ -173,6 +179,12 @@ resource "google_cloud_run_v2_service" "ingest_service" {
         name       = "sa-key-volume"
         mount_path = "/secrets"
       }
+      resources {
+        limits = {
+          cpu    = "2"
+          memory = "2Gi"
+        }
+      }
     }
     volumes {
       name = "sa-key-volume"
@@ -229,6 +241,18 @@ resource "google_cloud_run_v2_service" "ask_service" {
         value = "/secrets/serviceaccount.json"
       }
       env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name  = "LOCATION"
+        value = var.region
+      }
+      env {
+        name  = "GEMINI_MODEL_NAME"
+        value = "gemini-3.5-flash"
+      }
+      env {
         name = "DB_PASS"
         value_source {
           secret_key_ref {
@@ -249,6 +273,12 @@ resource "google_cloud_run_v2_service" "ask_service" {
       volume_mounts {
         name       = "sa-key-volume"
         mount_path = "/secrets"
+      }
+      resources {
+        limits = {
+          cpu    = "2"
+          memory = "2Gi"
+        }
       }
     }
     volumes {
@@ -310,6 +340,18 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
           value = "/secrets/serviceaccount.json"
         }
         env {
+          name  = "GOOGLE_CLOUD_PROJECT"
+          value = var.project_id
+        }
+        env {
+          name  = "LOCATION"
+          value = var.region
+        }
+        env {
+          name  = "GEMINI_MODEL_NAME"
+          value = "gemini-3.5-flash"
+        }
+        env {
           name = "DB_PASS"
           value_source {
             secret_key_ref {
@@ -321,6 +363,12 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         volume_mounts {
           name       = "sa-key-volume"
           mount_path = "/secrets"
+        }
+        resources {
+          limits = {
+            cpu    = "2"
+            memory = "2Gi"
+          }
         }
       }
       volumes {
