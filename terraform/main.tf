@@ -7,8 +7,7 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com",
     "storage-component.googleapis.com",
     "secretmanager.googleapis.com",
-    "iap.googleapis.com",
-    "aiplatform.googleapis.com"
+    "iap.googleapis.com"
   ])
   service = each.value
   disable_on_destroy = false

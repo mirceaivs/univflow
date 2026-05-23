@@ -242,7 +242,7 @@ resource "google_cloud_run_v2_service" "ask_service" {
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
-        value = var.project_id
+        value = "wave27-mivascu-447311"
       }
       env {
         name  = "LOCATION"
@@ -341,7 +341,7 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         }
         env {
           name  = "GOOGLE_CLOUD_PROJECT"
-          value = var.project_id
+          value = "wave27-mivascu-447311"
         }
         env {
           name  = "LOCATION"
