@@ -51,10 +51,6 @@ resource "google_compute_instance" "db_vm" {
   metadata_startup_script = <<-EOT
     #!/bin/bash
     export DEBIAN_FRONTEND=noninteractive
-    
-    # Install Google Cloud Ops Agent for logging
-    curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
-    bash add-google-cloud-ops-agent-repo.sh --also-install
 
     apt-get update
     apt-get install -yq git curl

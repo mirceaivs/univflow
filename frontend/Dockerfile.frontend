@@ -21,4 +21,4 @@ ENV BACKEND_URL=http://java-backend:8080
 EXPOSE 8080
 
 # Folosim sed manual la rulare pentru a inlocui fix $BACKEND_URL fara sa stricam variabilele interne Nginx
-CMD sh -c "sed -i \"s|\\$${BACKEND_URL}|$BACKEND_URL|g\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+CMD sh -c "sed -i \"s|PLACEHOLDER_BACKEND_URL|$BACKEND_URL|g\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
