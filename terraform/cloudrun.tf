@@ -31,7 +31,7 @@ resource "google_cloud_run_v2_service" "frontend" {
       }
       env {
         name  = "NGINX_ENVSUBST_FILTER"
-        value = "$${PORT} $${BACKEND_URL}"
+        value = "PORT BACKEND_URL"
       }
     }
   }

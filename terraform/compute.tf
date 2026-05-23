@@ -74,3 +74,18 @@ resource "google_compute_instance" "db_vm" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Regula firewall pentru acces SSH public si prin IAP (Identity-Aware Proxy)
+resource "google_compute_firewall" "db_firewall_ssh" {
+  name    = "univflow-db-allow-ssh"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["0.0.0.0/0", "35.235.240.0/20"]
+  target_tags   = ["univflow-db"]
+  depends_on    = [google_project_service.apis]
+}
