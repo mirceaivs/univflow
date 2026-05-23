@@ -18,7 +18,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.1-flash-preview")
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash")
 
 credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 if credentials_path and os.path.exists(credentials_path):

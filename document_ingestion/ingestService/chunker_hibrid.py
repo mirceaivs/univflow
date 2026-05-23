@@ -41,7 +41,10 @@ def sync_exponential_backoff(retries=5, initial_delay=2.0, max_delay=60.0):
 
 class MultimodalSemanticPipeline:
     def __init__(self, project_id: str, location: str, credentials=None):
-        self.vision_model = os.getenv("GEMINI_MODEL_NAME", "gemini-3.1-flash-preview")
+        self.vision_model = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash")
+        self.project_id = project_id
+        self.location = location
+        self.credentials = credentials
         self.llm = ChatGoogleGenerativeAI(
             model=self.vision_model,
             project=project_id,
@@ -192,7 +195,10 @@ class MultimodalSemanticPipeline:
             
             
             llm_summary = ChatGoogleGenerativeAI(
-                model=os.getenv("GEMINI_MODEL_NAME", "gemini-3.1-flash-preview"),
+                model=os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash"),
+                project=self.project_id,
+                location=self.location,
+                credentials=self.credentials,
                 temperature=0.5
             )
             
