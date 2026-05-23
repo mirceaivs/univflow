@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_postgres.chat_message_histories import PostgresChatMessageHistory
 from psycopg_pool import AsyncConnectionPool
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
+from langchain_google_vertexai import VertexAIEmbeddings
 from config import GRAPH_NAME, HISTORY_TABLE_NAME, RAG_PROMPT
 
 async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str) -> str:
@@ -43,7 +43,7 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
         return "RELAȚII CONCEPTUALE EXTRASE DIN GRAF:\n" + "\n".join(graph_results)
     return ""
 
-async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: GoogleGenerativeAIEmbeddings, question: str, course_id: str) -> List[Document]:
+async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: VertexAIEmbeddings, question: str, course_id: str) -> List[Document]:
     query_embedding = await embeddings_model.aembed_query(question)
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
@@ -86,7 +86,7 @@ async def persist_chat_interaction(pool: AsyncConnectionPool, session_id: str, u
 
 async def sse_interaction_generator(
     db_pool: AsyncConnectionPool,
-    embeddings_model: GoogleGenerativeAIEmbeddings,
+    embeddings_model: VertexAIEmbeddings,
     llm: ChatGoogleGenerativeAI,
     request_obj,
     question: str,

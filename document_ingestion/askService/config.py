@@ -16,7 +16,7 @@ if not INTERNAL_API_KEY:
     raise ValueError("Lipsește INTERNAL_API_KEY din fișierul .env")
 
 LLM_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3.5-flash")
-LOCATION = os.getenv("LOCATION", "global")
+LOCATION = os.getenv("LOCATION", "europe-west3")
 PROJECT_ID = os.getenv("VERTEX_AI_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
 VECTOR_TABLE_NAME = "document_chunks"
