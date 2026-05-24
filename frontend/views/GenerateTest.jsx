@@ -44,8 +44,17 @@ export const GenerateTestView = ({
   onStart,
   navParams,
   clearNavParams,
+  startQuizGeneration,
+  activeQuizGenerations,
 }) => {
-  const gt = useGenerateTest({ setView, onStart, navParams, clearNavParams });
+  const gt = useGenerateTest({
+    setView,
+    onStart,
+    navParams,
+    clearNavParams,
+    startQuizGeneration,
+    activeQuizGenerations,
+  });
 
   const {
     step,

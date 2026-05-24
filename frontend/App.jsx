@@ -16,6 +16,7 @@ import { QuizEvaluations } from "./views/QuizEvaluations.jsx";
 import { IngestionOverlay } from "./components/IngestionOverlay.jsx"; 
 import { IngestionProvider } from "./components/context/IngestionContext.jsx";
 import { useNotification } from "./components/context/NotificationContext.jsx";
+import { apiClient } from "./services/apiClient.js";
 
 const THEME_STORAGE_KEY = "theme";
 
@@ -48,6 +49,68 @@ function AppInner() {
   const [workspaceAction, setWorkspaceAction] = useState(null);
   const [navParams, setNavParams] = useState(null);
   const [workspaceState, setWorkspaceState] = useState(null);
+  const [activeQuizGenerations, setActiveQuizGenerations] = useState({});
+
+  const startQuizGeneration = useCallback(async (course, topic, difficulty, questionCount) => {
+    const courseId = course.backendId ?? course.id;
+    setActiveQuizGenerations((prev) => ({
+      ...prev,
+      [courseId]: { course, topic, difficulty, questionCount },
+    }));
+
+    try {
+      showNotification({
+        type: "info",
+        message: `Am început generarea testului pentru cursul ${course.name}. Te vom notifica când este gata.`,
+      });
+
+      const ragRes = await apiClient.post(`/rag/quiz/${courseId}/generate`, {
+        topic: topic || "conceptele principale",
+        difficulty,
+        numQuestions: questionCount,
+        optionsPerQuestion: 4,
+        allowMultipleCorrect: false,
+      });
+
+      const quizJsonString =
+        typeof ragRes?.data === "string"
+          ? ragRes.data
+          : JSON.stringify(ragRes.data);
+
+      const saveRes = await apiClient.post(`/quizzes/course/${courseId}`, {
+        topic: topic || "conceptele principale",
+        difficulty,
+        contentJson: quizJsonString,
+      });
+
+      const savedQuiz = saveRes?.data ?? null;
+
+      showNotification({
+        type: "success",
+        message: `Testul pentru ${course.name} a fost generat cu succes!`,
+      });
+
+      setWorkspaceAction({
+        type: "START_QUIZ",
+        course: course,
+        from: "generate-test",
+        quizId: savedQuiz?.id,
+      });
+      setCurrentView("workspace");
+    } catch (err) {
+      console.error("Eroare la generarea testului:", err);
+      showNotification({
+        type: "error",
+        message: `Generarea testului pentru ${course.name} a eșuat. Vă rugăm să încercați din nou.`,
+      });
+    } finally {
+      setActiveQuizGenerations((prev) => {
+        const next = { ...prev };
+        delete next[courseId];
+        return next;
+      });
+    }
+  }, [showNotification]);
 
   useEffect(() => {
     const stored = readStoredTheme();
@@ -131,6 +194,7 @@ function AppInner() {
         openWorkspace={() => setCurrentView("workspace")}
         openCourseTab={openCourseTab}
         workspaceState={workspaceState}
+        activeQuizGenerations={activeQuizGenerations}
       />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-white dark:bg-slate-900 transition-colors duration-200 shadow-[-10px_0_30px_rgba(0,0,0,0.02)] dark:shadow-none z-10">
@@ -168,6 +232,8 @@ function AppInner() {
               navParams={navParams}
               clearNavParams={() => setNavParams(null)}
               openCourseTab={openCourseTab}
+              startQuizGeneration={startQuizGeneration}
+              activeQuizGenerations={activeQuizGenerations}
             />
           )}
 

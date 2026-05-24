@@ -7,7 +7,14 @@ const YEARS = ['Toate', 'Anul 1', 'Anul 2', 'Anul 3', 'Anul 4', 'Anul 5', 'Anul 
 const SEMESTERS = ['Toate', 'Semestrul 1', 'Semestrul 2'];
 const SORT_OPTIONS = ['Cele mai recente', 'Alfabetic (A-Z)', 'Scor descrescător'];
 
-export function useGenerateTest({ setView, onStart, navParams, clearNavParams }) {
+export function useGenerateTest({ 
+  setView, 
+  onStart, 
+  navParams, 
+  clearNavParams,
+  startQuizGeneration,
+  activeQuizGenerations = {}
+}) {
   const { courses } = useCourses();
   const { showNotification } = useNotification();
 
@@ -27,8 +34,8 @@ export function useGenerateTest({ setView, onStart, navParams, clearNavParams })
   const [difficulty, setDifficulty] = useState('Mediu');
 
   const [questionCount, setQuestionCount] = useState(10);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedQuiz, setGeneratedQuiz] = useState(null);
+  const selectedCourseId = selectedCourse?.backendId ?? selectedCourse?.id;
+  const isGenerating = !!(activeQuizGenerations && selectedCourseId && activeQuizGenerations[selectedCourseId]);
 
   useEffect(() => {
     if (!navParams) return;
@@ -101,43 +108,8 @@ export function useGenerateTest({ setView, onStart, navParams, clearNavParams })
 
   const handleGenerate = useCallback(async () => {
     if (!selectedCourse) return;
-
-    setIsGenerating(true);
-
-    try {
-      const backendCourseId = selectedCourse.backendId ?? selectedCourse.id;
-
-      
-      const ragRes = await apiClient.post(`/rag/quiz/${backendCourseId}/generate`, {
-        topic: subject || 'conceptele principale',
-        difficulty,
-        numQuestions: questionCount,
-        optionsPerQuestion: 4, 
-        allowMultipleCorrect: false, 
-      });
-
-      const quizJsonString = typeof ragRes?.data === 'string' ? ragRes.data : JSON.stringify(ragRes.data);
-
-      const saveRes = await apiClient.post(`/quizzes/course/${backendCourseId}`, {
-        topic: subject || 'conceptele principale',
-        difficulty,
-        contentJson: quizJsonString,
-      });
-
-      const savedQuiz = saveRes?.data ?? null;
-      setGeneratedQuiz(savedQuiz);
-
-      onStart({
-        course: selectedCourse,
-        subject,
-        difficulty,
-        questionCount,
-        quiz: savedQuiz,
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [selectedCourse, subject, difficulty, questionCount, onStart]);
+    startQuizGeneration(selectedCourse, subject, difficulty, questionCount);
+  }, [selectedCourse, subject, difficulty, questionCount, startQuizGeneration]);
 
   const setYearAndResetSem = useCallback((year) => {
     setSelectedYear(year);
@@ -178,6 +150,6 @@ export function useGenerateTest({ setView, onStart, navParams, clearNavParams })
     handleBack,
     handleGenerate,
     setYearAndResetSem,
-    generatedQuiz,
+    generatedQuiz: null,
   };
 }
