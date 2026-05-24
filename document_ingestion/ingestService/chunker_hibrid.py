@@ -112,6 +112,9 @@ class MultimodalSemanticPipeline:
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
                 for page_index, page_data in enumerate(layout_data):
+                    page = pdf_document.load_page(page_index)
+                    has_extracted_images = False
+                    
                     if 'images' in page_data and page_data['images']:
                         for index, img_meta in enumerate(page_data['images']):
                             bbox = img_meta.get('bbox')
@@ -120,7 +123,6 @@ class MultimodalSemanticPipeline:
                             height = bbox[3] - bbox[1]
                             if width < 50 or height < 50: continue
                             
-                            page = pdf_document.load_page(page_index)
                             pix = page.get_pixmap(clip=fitz.Rect(bbox), dpi=200)
                             
                             future = executor.submit(
@@ -130,9 +132,35 @@ class MultimodalSemanticPipeline:
                                 storage_client, 
                                 bucket_name, 
                                 job_id, 
-                                index
+                                f"p{page_index}_img_{index}"
                             )
                             img_meta['future_data'] = future
+                            has_extracted_images = True
+
+                    # Dacă pymupdf4llm nu a extras imagini individuale, dar pagina conține desene vectoriale complexe
+                    # (cum ar fi diagrame ER în format vectorial: Visio/Draw.io) sau imagini pe care nu le-a extras,
+                    # randăm și trimitem întreaga pagină către modelul vizual Gemini pentru descriere
+                    if not has_extracted_images:
+                        drawings = page.get_drawings()
+                        images = page.get_images()
+                        
+                        if len(images) > 0 or len(drawings) > 10:
+                            pix = page.get_pixmap(dpi=200)
+                            future = executor.submit(
+                                self._interpret_visual_element,
+                                pix.tobytes("png"),
+                                "diagramă/schemă completă pe pagină",
+                                storage_client,
+                                bucket_name,
+                                job_id,
+                                f"p{page_index}_full"
+                            )
+                            if 'images' not in page_data:
+                                page_data['images'] = []
+                            page_data['images'].append({
+                                'bbox': [0, 0, page.rect.width, page.rect.height],
+                                'future_data': future
+                            })
 
                 comprehensive_markdown_pages = []
                 for page_data in layout_data:
@@ -236,13 +264,53 @@ class MultimodalSemanticPipeline:
         
         
         
+        # Protejăm tabelele Markdown prin placeholders pentru a preveni fragmentarea lor de către Semantic Chunker
+        lines = full_document_text.split("\n")
+        processed_lines = []
+        tables_list = []
+        current_table = []
+        
+        for line in lines:
+            trimmed = line.strip()
+            if trimmed.startswith("|"):
+                current_table.append(line)
+            else:
+                if current_table:
+                    table_text = "\n".join(current_table)
+                    placeholder = f"__TABLE_PLACEHOLDER_{len(tables_list)}__"
+                    tables_list.append(table_text)
+                    processed_lines.append(placeholder)
+                    current_table = []
+                processed_lines.append(line)
+                
+        if current_table:
+            table_text = "\n".join(current_table)
+            placeholder = f"__TABLE_PLACEHOLDER_{len(tables_list)}__"
+            tables_list.append(table_text)
+            processed_lines.append(placeholder)
+            
+        placeholder_text = "\n".join(processed_lines)
+
         clean_file_name = re.sub(r'^([0-9a-fA-F\-]+_|[a-zA-Z0-9]+_)', '', os.path.basename(file_path))
         
         docs = self.semantic_chunker.create_documents(
-            [full_document_text],
+            [placeholder_text],
             metadatas=[{"course_id": course_id, "source_file": clean_file_name}]
         )
         
+        # Restabilim tabelele originale în cadrul chunk-urilor generate
+        def restore_tables(chunk_text, saved_tables):
+            def replace_match(match):
+                idx = int(match.group(1))
+                if idx < len(saved_tables):
+                    return f"\n\n{saved_tables[idx]}\n\n"
+                return match.group(0)
+            return re.sub(r'__TABLE_PLACEHOLDER_(\d+)__', replace_match, chunk_text)
+
+        for doc in docs:
+            doc.page_content = restore_tables(doc.page_content, tables_list)
+            # Curățăm eventualele linii goale excesive adăugate la restabilire
+            doc.page_content = re.sub(r'\n{3,}', '\n\n', doc.page_content).strip()
         
         if global_summary_doc:
             docs.insert(0, global_summary_doc)

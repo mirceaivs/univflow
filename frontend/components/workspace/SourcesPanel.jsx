@@ -8,17 +8,25 @@ const cleanRawText = (rawText) => {
   if (!rawText) return "Fragment de text indisponibil.";
   let text = rawText;
 
-  
-  
+  // Pasul 1: Separă rândurile tabelelor concatenate orizontal (dacă sunt separate prin | | )
   text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");
 
-  
+  // Pasul 2: Remediază celulele goale ce conțin doar spații
   text = text.replace(/\|\s+\|/g, "|\n|");
 
-  
-  text = text.replace(/([^\n|])\s+(\|[^|\n]+\|)/g, "$1\n\n$2");
+  // Pasul 3: Separă textul simplu de începutul unui tabel, dar fără a distruge celulele aceluiași rând
+  text = text.replace(/([^\n|])\s+(\|[^|\n]+\|)/g, (match, p1, p2, offset) => {
+    const textBeforeMatch = text.slice(0, offset);
+    const lastNewlineIdx = textBeforeMatch.lastIndexOf("\n");
+    const currentLineBeforeMatch = textBeforeMatch.slice(lastNewlineIdx + 1);
+    
+    if (currentLineBeforeMatch.includes("|")) {
+      return match; // Suntem deja în interiorul unui rând de tabel, nu fragmentăm celulele
+    }
+    return `${p1}\n\n${p2}`;
+  });
 
-  
+  // Pasul 4: Asigură-te că rândurile care încep cu | se închid corect cu |
   text = text
     .split("\n")
     .map((line) => {
@@ -30,7 +38,7 @@ const cleanRawText = (rawText) => {
     })
     .join("\n");
 
-  
+  // Pasul 5: Curățare spații și linii goale redundante
   text = text.replace(/\n{3,}/g, "\n\n");
 
   return text.trim();

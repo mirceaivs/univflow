@@ -109,6 +109,7 @@ async def sse_interaction_generator(
     )
     
     citations_collection = []
+    filtered_citations = []
     hybrid_knowledge_body = ""
     current_source_idx = 1
 
@@ -179,9 +180,7 @@ async def sse_interaction_generator(
             used_ids.update([int(n) for n in nums])
             
         
-        if "nu am suficiente informații" in full_ai_response.lower():
-            filtered_citations = [] 
-        elif used_ids:
+        if used_ids:
             filtered_citations = [c for c in citations_collection if c['id'] in used_ids]
         else:
             filtered_citations = []
