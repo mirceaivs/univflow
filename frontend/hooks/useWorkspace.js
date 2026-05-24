@@ -20,7 +20,7 @@ export function useWorkspace({
   const [focusedMessageId, setFocusedMessageId] = useState(null); 
   const [activeQuizId, setActiveQuizId] = useState(null);
 
-  const { courses } = useCourses();
+  const { courses, loading } = useCourses();
   const [course, setCourse] = useState(null);
 
   const persist = useCallback(
@@ -177,6 +177,6 @@ export function useWorkspace({
     course, setCourse, mainContent, setMainContent, rightPanelState, setRightPanelState,
     quizKey, backToChat, navigateToGenerateTest, openSources, openMaterials,
     activeSources, focusedSourceId, focusedMessageId, activeQuizId,
-    handleBackFromQuiz
+    handleBackFromQuiz, loadingCourses: loading
   };
 }

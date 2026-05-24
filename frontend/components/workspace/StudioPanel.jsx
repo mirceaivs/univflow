@@ -7,7 +7,7 @@ import { useNotification } from '../context/NotificationContext.jsx';
 export const StudioPanel = ({ mainContent, setMainContent, navigateToGenerateTest, courseId, docsHook }) => {
   const { showNotification } = useNotification();
   const fileInputRef = useRef(null);
-  const { materials, uploadDocuments, uploading, uploadProgress } = docsHook || useDocuments({ courseId });
+  const { materials, uploadDocuments, uploading, uploadProgress, loading } = docsHook || useDocuments({ courseId });
 
   const canUseCourse = Boolean(courseId);
 
@@ -112,22 +112,31 @@ export const StudioPanel = ({ mainContent, setMainContent, navigateToGenerateTes
         </h3>
 
         <div className="space-y-1">
-          {(!materials || materials.length === 0) && !uploading && (
-            <p className="text-xs text-slate-400 italic">Nu există documente încă.</p>
-          )}
-
-          {(materials || []).map((mat) => (
-            <div
-              key={mat.id}
-              className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer group transition-colors"
-              title={mat.name}
-            >
-              <FileText className={`w-4 h-4 ${mat.type === 'pdf' ? 'text-red-500 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`} />
-              <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-slate-900 dark:group-hover:text-slate-100 font-medium">
-                {mat.name}
-              </span>
+          {loading ? (
+            <div className="flex items-center gap-2 py-3 px-1 text-slate-400 dark:text-slate-500">
+              <div className="w-3.5 h-3.5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-xs">Se încarcă resursele...</span>
             </div>
-          ))}
+          ) : (
+            <>
+              {(!materials || materials.length === 0) && !uploading && (
+                <p className="text-xs text-slate-400 italic">Nu există documente încă.</p>
+              )}
+
+              {(materials || []).map((mat) => (
+                <div
+                  key={mat.id}
+                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer group transition-colors"
+                  title={mat.name}
+                >
+                  <FileText className={`w-4 h-4 ${mat.type === 'pdf' ? 'text-red-500 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`} />
+                  <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-slate-900 dark:group-hover:text-slate-100 font-medium">
+                    {mat.name}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         <input

@@ -63,6 +63,7 @@ export const GenerateTestView = ({
     selectingId,
     returnTo,
     loading,
+    error,
     searchQuery,
     setSearchQuery,
     selectedYear,
@@ -222,6 +223,11 @@ export const GenerateTestView = ({
                 <p className="text-slate-500 dark:text-slate-400 font-medium">
                   Se încarcă cursurile...
                 </p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-red-200 dark:border-red-800 shadow-sm animate-in fade-in duration-300">
+                <p className="text-red-500 font-bold mb-2">Eroare la încărcarea materiilor</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">Verifică conexiunea la internet sau conexiunea cu serverul și reîncearcă.</p>
               </div>
             ) : (
               <div

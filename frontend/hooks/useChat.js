@@ -11,7 +11,7 @@ export function useChat({ courseId } = {}) {
   
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(!!courseId);
 
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
@@ -73,6 +73,8 @@ export function useChat({ courseId } = {}) {
     setChatInput('');
     if (courseId) {
       loadHistory(courseId, 0);
+    } else {
+      setIsLoadingHistory(false);
     }
   }, [courseId, loadHistory]);
 
