@@ -343,7 +343,7 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         }
         env {
           name  = "GCS_BUCKET_NAME"
-          value = google_storage_bucket.ingestion_bucket.name
+          value = google_storage_bucket.public_diagrams_bucket.name
         }
         env {
           name  = "GOOGLE_APPLICATION_CREDENTIALS"

@@ -37,6 +37,10 @@ resource "google_storage_bucket" "ingestion_bucket" {
       type = "Delete"
     }
   }
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
 }
 
 # 2. Bucket Public (Diagrame)
@@ -45,6 +49,10 @@ resource "google_storage_bucket" "public_diagrams_bucket" {
   location      = var.region
   force_destroy = false
   uniform_bucket_level_access = true
+
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
 }
 
 resource "google_storage_bucket_iam_member" "public_diagrams_viewer" {
