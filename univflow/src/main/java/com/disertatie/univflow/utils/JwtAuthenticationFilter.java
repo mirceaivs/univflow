@@ -85,10 +85,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
-            filterChain.doFilter(request, response);
-
         } catch (Exception ex) {
-            handlerExceptionResolver.resolveException(request, response, null, ex);
+            logger.warn("JWT validation failed: " + ex.getMessage());
         }
+        filterChain.doFilter(request, response);
     }
 }

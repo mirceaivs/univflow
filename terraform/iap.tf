@@ -18,3 +18,31 @@ resource "google_iap_web_cloud_run_service_iam_member" "iap_user_frontend" {
   role                     = "roles/iap.httpsResourceAccessor"  
   member                   = "user:univflow.app@gmail.com"
 }
+
+# --- Public Access (IAM Invokers) for Backend Services ---
+# Since these services run their own application-level authentication (Spring Security / API Keys),
+# we allow allUsers to invoke their Cloud Run URLs so that GFE passes traffic.
+
+resource "google_cloud_run_v2_service_iam_member" "backend_invoker" {
+  project  = google_cloud_run_v2_service.java_backend.project
+  location = google_cloud_run_v2_service.java_backend.location
+  name     = google_cloud_run_v2_service.java_backend.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "ingest_invoker" {
+  project  = google_cloud_run_v2_service.ingest_service.project
+  location = google_cloud_run_v2_service.ingest_service.location
+  name     = google_cloud_run_v2_service.ingest_service.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "ask_invoker" {
+  project  = google_cloud_run_v2_service.ask_service.project
+  location = google_cloud_run_v2_service.ask_service.location
+  name     = google_cloud_run_v2_service.ask_service.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}

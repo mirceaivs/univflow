@@ -23,6 +23,9 @@ resource "google_cloud_run_v2_service" "frontend" {
         name  = "BACKEND_URL"
         value = local.backend_url
       }
+      resources {
+        startup_cpu_boost = true
+      }
     }
   }
 
@@ -95,6 +98,7 @@ resource "google_cloud_run_v2_service" "java_backend" {
           cpu    = "2"
           memory = "2Gi"
         }
+        startup_cpu_boost = true
       }
     }
   }
@@ -184,6 +188,7 @@ resource "google_cloud_run_v2_service" "ingest_service" {
           cpu    = "2"
           memory = "2Gi"
         }
+        startup_cpu_boost = true
       }
     }
     volumes {
@@ -250,7 +255,7 @@ resource "google_cloud_run_v2_service" "ask_service" {
       }
       env {
         name  = "LOCATION"
-        value = var.region
+        value = "global"
       }
       env {
         name  = "GEMINI_MODEL_NAME"
@@ -283,6 +288,7 @@ resource "google_cloud_run_v2_service" "ask_service" {
           cpu    = "2"
           memory = "2Gi"
         }
+        startup_cpu_boost = true
       }
     }
     volumes {
@@ -353,7 +359,7 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         }
         env {
           name  = "LOCATION"
-          value = var.region
+          value = "global"
         }
         env {
           name  = "GEMINI_MODEL_NAME"

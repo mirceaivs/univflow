@@ -95,7 +95,10 @@ export function useChat({ courseId } = {}) {
           .split('; ')
           .find(row => row.startsWith('XSRF-TOKEN='));
         const csrfToken = csrfCookie ? decodeURIComponent(csrfCookie.split('=')[1]) : '';
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = { 
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        };
         if (csrfToken) headers['X-XSRF-TOKEN'] = csrfToken;
         return headers;
       };

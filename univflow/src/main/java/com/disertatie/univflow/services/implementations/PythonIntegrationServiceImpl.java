@@ -18,6 +18,11 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpResponse;
+import java.io.IOException;
+import java.time.Duration;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -49,6 +54,50 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
         this.objectMapper = objectMapper;
         this.webClientBuilder = webClientBuilder;
         this.cleanRestTemplate = new RestTemplate();
+        
+        this.cleanRestTemplate.setInterceptors(List.of(new ClientHttpRequestInterceptor() {
+            @Override
+            public ClientHttpResponse intercept(org.springframework.http.HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
+                int maxRetries = 3;
+                long backoffMs = 1500;
+                IOException lastException = null;
+                ClientHttpResponse response = null;
+                
+                for (int i = 0; i < maxRetries; i++) {
+                    try {
+                        response = execution.execute(request, body);
+                        if (response.getStatusCode().is5xxServerError()) {
+                            log.warn("Request to Python service at {} failed with status {}. Retrying {}/{}...", 
+                                    request.getURI(), response.getStatusCode(), i + 1, maxRetries);
+                            response.close();
+                        } else {
+                            return response;
+                        }
+                    } catch (IOException e) {
+                        lastException = e;
+                        log.warn("Request to Python service at {} failed with exception: {}. Retrying {}/{}...", 
+                                request.getURI(), e.getMessage(), i + 1, maxRetries);
+                    }
+                    
+                    if (i < maxRetries - 1) {
+                        try {
+                            Thread.sleep(backoffMs * (i + 1));
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("Retry sleep interrupted", ex);
+                        }
+                    }
+                }
+                
+                if (response != null) {
+                    return response;
+                }
+                if (lastException != null) {
+                    throw lastException;
+                }
+                throw new IOException("Request failed after " + maxRetries + " retries");
+            }
+        }));
     }
 
     @PostConstruct
@@ -224,7 +273,10 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                 
                 .header("X-Internal-Service-Key", internalApiKey)
                 .retrieve()
-                .bodyToMono(String.class); 
+                .bodyToMono(String.class)
+                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofSeconds(1))
+                        .filter(throwable -> !(throwable instanceof org.springframework.web.reactive.function.client.WebClientResponseException ex 
+                                && ex.getStatusCode().is4xxClientError())));
     }
 
     @Override

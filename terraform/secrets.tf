@@ -61,3 +61,23 @@ resource "google_secret_manager_secret_iam_member" "compute_sa_service_account_k
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
 }
+
+# 4. Mail Password Secret
+resource "google_secret_manager_secret" "mail_password" {
+  secret_id = "mail_password"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "mail_password_version" {
+  secret      = google_secret_manager_secret.mail_password.id
+  secret_data = var.mail_password
+}
+
+resource "google_secret_manager_secret_iam_member" "compute_sa_mail_password" {
+  secret_id = google_secret_manager_secret.mail_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
+}

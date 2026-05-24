@@ -55,15 +55,15 @@ resource "google_compute_instance" "db_vm" {
     apt-get update
     apt-get install -yq git curl
 
-    # Install Docker using the convenience script
     curl -fsSL https://get.docker.com -o get-docker.sh
     sh get-docker.sh
 
     cd /opt
     if [ ! -d "${var.github_repo}" ]; then
-      git clone https://github.com/${var.github_owner}/${var.github_repo}.git
+      git clone https://${var.github_token}@github.com/${var.github_owner}/${var.github_repo}.git
     else
       cd ${var.github_repo}
+      git remote set-url origin https://${var.github_token}@github.com/${var.github_owner}/${var.github_repo}.git
       git pull
       cd ..
     fi
