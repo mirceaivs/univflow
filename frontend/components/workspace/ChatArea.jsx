@@ -77,6 +77,7 @@ export const ChatArea = ({
   focusedMessageId, 
   openSources,
   courseId,
+  isLoadingHistory,
 }) => {
   const messagesEndRef = useRef(null);
   const { activeJobs, removeJob } = useIngestion();
@@ -140,130 +141,141 @@ export const ChatArea = ({
             : ""
         }`}
       >
-        {(!messages || messages.length === 0) && (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto animate-in fade-in duration-500">
-            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-primary-600 dark:text-primary-400 mb-6">
-              <Sparkles className="w-8 h-8" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight mb-2">
-              Asistent Inteligent de Curs
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-              Adresează întrebări punctuale despre suportul de curs, seminarii
-              sau bibliografie. Răspunsurile vor fi generate strict pe baza
-              materialelor oficiale încărcate.
+        {isLoadingHistory ? (
+          <div className="h-full flex flex-col items-center justify-center text-center py-20 gap-4">
+            <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              Se încarcă istoricul conversației...
             </p>
           </div>
-        )}
-
-        {(messages || []).map((msg) => {
-          const isUser = msg.role === "user";
-          const rawText = msg.content || msg.text || "";
-
-          const isPlaceholder = !rawText && !isUser;
-          
-          const messageText = isPlaceholder
-            ? funnyLoadingMessages[loadingMsgIndex]
-            : rawText;
-
-          return (
-            <div
-              key={msg.id}
-              className={`flex gap-4 ${
-                isUser ? "justify-end" : "justify-start"
-              }`}
-            >
-              {!isUser && (
-                <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-primary-600 dark:text-primary-400 shadow-sm shrink-0">
-                  <Sparkles className="w-4 h-4" />
+        ) : (
+          <>
+            {(!messages || messages.length === 0) && (
+              <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto animate-in fade-in duration-500">
+                <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-primary-600 dark:text-primary-400 mb-6">
+                  <Sparkles className="w-8 h-8" />
                 </div>
-              )}
+                <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight mb-2">
+                  Asistent Inteligent de Curs
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                  Adresează întrebări punctuale despre suportul de curs, seminarii
+                  sau bibliografie. Răspunsurile vor fi generate strict pe baza
+                  materialelor oficiale încărcate.
+                </p>
+              </div>
+            )}
 
-              <div
-                className={`max-w-[85%] md:max-w-[75%] flex flex-col ${
-                  isUser ? "items-end" : "items-start"
-                }`}
-              >
+            {(messages || []).map((msg) => {
+              const isUser = msg.role === "user";
+              const rawText = msg.content || msg.text || "";
+
+              const isPlaceholder = !rawText && !isUser;
+              
+              const messageText = isPlaceholder
+                ? funnyLoadingMessages[loadingMsgIndex]
+                : rawText;
+
+              return (
                 <div
-                  className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
-                    isUser
-                      ? "bg-primary-600 text-white font-medium shadow-md shadow-primary-500/10 rounded-tr-none message-user-anim"
-                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim"
-                  } ${
-                    isPlaceholder
-                      ? "italic text-slate-400 dark:text-slate-500 select-none animate-pulse transition-all duration-500"
-                      : ""
+                  key={msg.id}
+                  className={`flex gap-4 ${
+                    isUser ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {isUser ? (
-                    <p className="whitespace-pre-wrap">{messageText}</p>
-                  ) : isPlaceholder ? (
-                    <div className="flex flex-col gap-2 py-1 px-0.5">
-                      <div className="flex items-center gap-1.5 py-1">
-                        <span className="typing-dot"></span>
-                        <span className="typing-dot"></span>
-                        <span className="typing-dot"></span>
-                      </div>
-                      <span className="text-slate-400 dark:text-slate-500 italic select-none text-[13px] leading-snug">
-                        {messageText}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className={`prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 font-normal ${msg.isStreaming ? "is-streaming" : ""}`}>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({ href, children }) => {
-                            if (href && href.startsWith("citation-")) {
-                              const sourceId = href.replace("citation-", "");
-
-                              
-                              const isFocused =
-                                String(focusedSourceId) === String(sourceId) &&
-                                String(focusedMessageId) === String(msg.id);
-
-                              return (
-                                <span
-                                  onClick={() =>
-                                    openSources(
-                                      msg.citations || citations,
-                                      sourceId,
-                                      msg.id 
-                                    )
-                                  }
-                                  className={`inline-flex items-center justify-center min-w-[24px] px-2 py-0.5 mx-0.5 text-[11px] font-bold rounded-full cursor-pointer select-none transition-all duration-200 ${
-                                    isFocused
-                                      ? "bg-primary-800 text-white ring-2 ring-primary-300 ring-offset-1 scale-105 shadow-md"
-                                      : "bg-primary-600 text-white shadow-sm hover:bg-primary-500 hover:shadow-md hover:-translate-y-0.5"
-                                  }`}
-                                >
-                                  {children}
-                                </span>
-                              );
-                            }
-                            return (
-                              <a
-                                href={href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {children}
-                              </a>
-                            );
-                          },
-                        }}
-                      >
-                        {preprocessMarkdown(
-                          deduplicateCitations(messageText)
-                        )}
-                      </ReactMarkdown>
+                  {!isUser && (
+                    <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-primary-600 dark:text-primary-400 shadow-sm shrink-0">
+                      <Sparkles className="w-4 h-4" />
                     </div>
                   )}
+
+                  <div
+                    className={`max-w-[85%] md:max-w-[75%] flex flex-col ${
+                      isUser ? "items-end" : "items-start"
+                    }`}
+                  >
+                    <div
+                      className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
+                        isUser
+                          ? "bg-primary-600 text-white font-medium shadow-md shadow-primary-500/10 rounded-tr-none message-user-anim"
+                          : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim"
+                      } ${
+                        isPlaceholder
+                          ? "italic text-slate-400 dark:text-slate-500 select-none animate-pulse transition-all duration-500"
+                          : ""
+                      }`}
+                    >
+                      {isUser ? (
+                        <p className="whitespace-pre-wrap">{messageText}</p>
+                      ) : isPlaceholder ? (
+                        <div className="flex flex-col gap-2 py-1 px-0.5">
+                          <div className="flex items-center gap-1.5 py-1">
+                            <span className="typing-dot"></span>
+                            <span className="typing-dot"></span>
+                            <span className="typing-dot"></span>
+                          </div>
+                          <span className="text-slate-400 dark:text-slate-500 italic select-none text-[13px] leading-snug">
+                            {messageText}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className={`prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 font-normal ${msg.isStreaming ? "is-streaming" : ""}`}>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ href, children }) => {
+                                if (href && href.startsWith("citation-")) {
+                                  const sourceId = href.replace("citation-", "");
+
+                                  
+                                  const isFocused =
+                                    String(focusedSourceId) === String(sourceId) &&
+                                    String(focusedMessageId) === String(msg.id);
+
+                                  return (
+                                    <span
+                                      onClick={() =>
+                                        openSources(
+                                          msg.citations || citations,
+                                          sourceId,
+                                          msg.id 
+                                        )
+                                      }
+                                      className={`inline-flex items-center justify-center min-w-[24px] px-2 py-0.5 mx-0.5 text-[11px] font-bold rounded-full cursor-pointer select-none transition-all duration-200 ${
+                                        isFocused
+                                          ? "bg-primary-800 text-white ring-2 ring-primary-300 ring-offset-1 scale-105 shadow-md"
+                                          : "bg-primary-600 text-white shadow-sm hover:bg-primary-500 hover:shadow-md hover:-translate-y-0.5"
+                                      }`}
+                                    >
+                                      {children}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {children}
+                                  </a>
+                                );
+                              },
+                            }}
+                          >
+                            {preprocessMarkdown(
+                              deduplicateCitations(messageText)
+                            )}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </>
+        )}
         <div ref={messagesEndRef} />
       </div>
 

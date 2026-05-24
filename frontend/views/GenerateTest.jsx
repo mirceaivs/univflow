@@ -62,6 +62,7 @@ export const GenerateTestView = ({
     isTransitioning,
     selectingId,
     returnTo,
+    loading,
     searchQuery,
     setSearchQuery,
     selectedYear,
@@ -215,58 +216,67 @@ export const GenerateTestView = ({
             </div>
 
             {}
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                  : "flex flex-col gap-4"
-              }
-            >
-              {filteredCourses.map((course) => {
-                const isSelecting = selectingId === course.id;
-                const hasNoDocs = !course.docs || course.docs === 0;
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in duration-300">
+                <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">
+                  Se încarcă cursurile...
+                </p>
+              </div>
+            ) : (
+              <div
+                className={
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    : "flex flex-col gap-4"
+                }
+              >
+                {filteredCourses.map((course) => {
+                  const isSelecting = selectingId === course.id;
+                  const hasNoDocs = !course.docs || course.docs === 0;
 
-                return (
-                  <div
-                    key={course.id}
-                    onClick={() => handleCourseSelect(course)}
-                    className={`transition-all duration-300 ${
-                      hasNoDocs
-                        ? "opacity-60 grayscale"
-                        : isSelecting
-                        ? "scale-95 opacity-50 ring-2 ring-primary-500 rounded-2xl cursor-pointer"
-                        : "hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                    }`}
-                  >
-                    <CourseCard
-                      course={course}
-                      variant={viewMode}
-                      actionText={hasNoDocs ? "Adaugă Materiale" : "Selectează Curs"}
-                      onClick={(e) => {
-                        if (hasNoDocs) {
-                          e.stopPropagation();
-                          openCourseTab(course, "materials");
-                        }
-                      }}
-                    />
-                  </div>
-                );
-              })}
+                  return (
+                    <div
+                      key={course.id}
+                      onClick={() => handleCourseSelect(course)}
+                      className={`transition-all duration-300 ${
+                        hasNoDocs
+                          ? "opacity-60 grayscale"
+                          : isSelecting
+                          ? "scale-95 opacity-50 ring-2 ring-primary-500 rounded-2xl cursor-pointer"
+                          : "hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                      }`}
+                    >
+                      <CourseCard
+                        course={course}
+                        variant={viewMode}
+                        actionText={hasNoDocs ? "Adaugă Materiale" : "Selectează Curs"}
+                        onClick={(e) => {
+                          if (hasNoDocs) {
+                            e.stopPropagation();
+                            openCourseTab(course, "materials");
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                })}
 
-              {filteredCourses.length === 0 && (
-                <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-                    <Search className="w-8 h-8" />
+                {filteredCourses.length === 0 && (
+                  <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                      <Search className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
+                      Nu am găsit materii
+                    </h3>
+                    <p className="text-slate-500 dark:text-slate-400">
+                      Încearcă alte filtre sau adaugă un curs nou.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
-                    Nu am găsit materii
-                  </h3>
-                  <p className="text-slate-500 dark:text-slate-400">
-                    Încearcă alte filtre sau adaugă un curs nou.
-                  </p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {}

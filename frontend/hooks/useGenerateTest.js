@@ -15,7 +15,7 @@ export function useGenerateTest({
   startQuizGeneration,
   activeQuizGenerations = {}
 }) {
-  const { courses } = useCourses();
+  const { courses, loading } = useCourses();
   const { showNotification } = useNotification();
 
   const [step, setStep] = useState(1);
@@ -122,6 +122,7 @@ export function useGenerateTest({
     isTransitioning,
     selectingId,
     returnTo,
+    loading,
 
     searchQuery,
     setSearchQuery,

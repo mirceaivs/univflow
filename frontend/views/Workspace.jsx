@@ -218,6 +218,7 @@ export const WorkspaceView = ({
                 focusedMessageId={workspace.focusedMessageId} 
                 openSources={workspace.openSources}
                 courseId={backendCourseId}
+                isLoadingHistory={chat.isLoadingHistory}
               />
             )}
           </div>
