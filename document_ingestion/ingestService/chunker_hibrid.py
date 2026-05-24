@@ -137,17 +137,22 @@ class MultimodalSemanticPipeline:
                 comprehensive_markdown_pages = []
                 for page_data in layout_data:
                     page_text = page_data.get('text', '') 
-                    
-                    
-                    
+                    # 1. Ștergem adnotările de tip "newline ca HTML"
                     page_text = re.sub(r'<br\s*/?>', ' ', page_text)
                     
+                    # 2. Ștergem liniile de copyright evidente și drepturi rezervate
+                    page_text = re.sub(r'^.*copyright\s*(©|\(c\)).*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
+                    page_text = re.sub(r'^.*toate\s+drepturile\s+rezervate.*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
                     
+                    # 3. Eliminăm liniile din cuprins (cu cel puțin 4 puncte consecutive)
+                    page_text = re.sub(r'^.*\.{4,}.*$', '', page_text, flags=re.MULTILINE)
                     
-                    page_text = re.sub(r'^([a-zA-Z0-9©]\s+){4,}.*$', '', page_text, flags=re.MULTILINE)
+                    # 4. Eliminăm cuvântul "Cuprins" dacă este singur pe linie
+                    page_text = re.sub(r'^\s*#*\s*\*?\*?\s*cuprins\s*\*?\*?\s*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
                     
-                    
-                    page_text = re.sub(r'.*?\.{4,}\s*\d+$', '', page_text, flags=re.MULTILINE)
+                    # 5. Eliminăm numerele de pagină (singure pe linie, formate de tip "5- 2" sau "pagina 12")
+                    page_text = re.sub(r'^\s*\d+\s*-\s*\d+\s*$', '', page_text, flags=re.MULTILINE)
+                    page_text = re.sub(r'^\s*(pag(ina|\.)?|page)?\s*\d+\s*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
                     
                     
                     if 'images' in page_data:
@@ -167,6 +172,7 @@ class MultimodalSemanticPipeline:
                     comprehensive_markdown_pages.append(page_text)
             
             full_document_text = "\n".join(comprehensive_markdown_pages)
+            full_document_text = re.sub(r'\n{3,}', '\n\n', full_document_text)
         finally:
             pdf_document.close()
             
