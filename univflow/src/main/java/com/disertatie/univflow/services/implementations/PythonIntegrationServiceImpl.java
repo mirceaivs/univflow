@@ -102,12 +102,17 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
 
     @PostConstruct
     public void init() {
+        reactor.netty.http.client.HttpClient httpClient = reactor.netty.http.client.HttpClient.create()
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, 15000)
+                .responseTimeout(Duration.ofSeconds(30));
+
         this.webClient = webClientBuilder
+                .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
                 .baseUrl(askServiceUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
-        log.info("WebClient a fost configurat cu succes la adresa: {}", askServiceUrl);
+        log.info("WebClient a fost configurat cu succes la adresa: {} cu timeout conexiune 15s și read 30s", askServiceUrl);
     }
 
     @Override
@@ -268,15 +273,21 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                         .queryParam("page", page)
                         .queryParam("size", size)
                         .build(courseId))
-                
                 .header("X-User-Id", userId)
-                
                 .header("X-Internal-Service-Key", internalApiKey)
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofSeconds(1))
-                        .filter(throwable -> !(throwable instanceof org.springframework.web.reactive.function.client.WebClientResponseException ex 
-                                && ex.getStatusCode().is4xxClientError())));
+                .doOnError(throwable -> log.warn("Apelul către istoric chat askService a eșuat: {}. Se încearcă retry...", throwable.getMessage()))
+                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofSeconds(2))
+                        .filter(throwable -> {
+                            if (throwable instanceof org.springframework.web.reactive.function.client.WebClientResponseException ex) {
+                                int status = ex.getStatusCode().value();
+                                return status == 404 || status == 408 || status == 409 || status >= 500;
+                            }
+                            return true;
+                        })
+                        .doBeforeRetry(retrySignal -> log.warn("Tentativă de retry #{} pentru istoric chat din cauza: {}", 
+                                retrySignal.totalRetries() + 1, retrySignal.failure().getMessage())));
     }
 
     @Override
