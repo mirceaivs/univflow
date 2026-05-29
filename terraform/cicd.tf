@@ -79,6 +79,7 @@ resource "google_cloudbuild_trigger" "java_backend_trigger" {
   included_files = ["univflow/**"]
 
   build {
+    timeout = "1800s"
     step {
       name = "gcr.io/cloud-builders/docker"
       args = ["build", "-t", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/java-backend:latest", "-f", "univflow/Dockerfile.java", "univflow/"]
@@ -93,7 +94,8 @@ resource "google_cloudbuild_trigger" "java_backend_trigger" {
       args = ["run", "deploy", "java-backend-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/java-backend:latest", "--region", var.region]
     }
     options {
-      logging = "CLOUD_LOGGING_ONLY"
+      logging      = "CLOUD_LOGGING_ONLY"
+      machine_type = "E2_HIGHCPU_32"
     }
   }
   depends_on = [google_project_service.apis]
