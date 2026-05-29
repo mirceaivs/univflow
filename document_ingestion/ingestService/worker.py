@@ -272,7 +272,7 @@ def process_single_execution():
 
         try:
             if 'blob' in locals() and blob and blob.exists():
-                blob.delete()
+                pass # Nu mai stergem fisierul pentru a putea fi accesat in frontend
         except Exception:
             pass
             

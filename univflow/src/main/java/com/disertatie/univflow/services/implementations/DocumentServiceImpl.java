@@ -21,6 +21,9 @@ public class DocumentServiceImpl implements DocumentService {
     private final DocumentRepository documentRepository;
     private final PythonIntegrationService pythonService;
 
+    @org.springframework.beans.factory.annotation.Value("${gcs.bucket.name:test-bucket-mivascu}")
+    private String gcsBucketName;
+
     @Override
     public List<DocumentDTO> getDocumentsByCourse(String courseId) {
         
@@ -31,6 +34,7 @@ public class DocumentServiceImpl implements DocumentService {
                         .jobId(doc.getJobId())
                         .fileType(doc.getFileType())
                         .uploadDate(doc.getUploadDate())
+                        .url(String.format("https://storage.googleapis.com/%s/ingestion_artifacts/%s/%s_%s", gcsBucketName, courseId, doc.getJobId(), doc.getFileName()))
                         .build())
                 .collect(Collectors.toList());
     }

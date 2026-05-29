@@ -93,6 +93,10 @@ resource "google_cloud_run_v2_service" "java_backend" {
           }
         }
       }
+      env {
+        name  = "GCS_BUCKET_NAME"
+        value = google_storage_bucket.ingestion_bucket.name
+      }
       resources {
         limits = {
           cpu    = "2"

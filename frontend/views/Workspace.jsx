@@ -11,6 +11,7 @@ import { QuizArea } from "../components/workspace/QuizArea.jsx";
 import { MaterialsArea } from "../components/workspace/MaterialsArea.jsx";
 import { StudioPanel } from "../components/workspace/StudioPanel.jsx";
 import { SourcesPanel } from "../components/workspace/SourcesPanel.jsx";
+import { DocumentPanel } from "../components/workspace/DocumentPanel.jsx";
 import { CollapsedPanel } from "../components/workspace/CollapsedPanel.jsx";
 import { useWorkspace } from "../hooks/useWorkspace.js";
 import { useChat } from "../hooks/useChat.js";
@@ -307,7 +308,43 @@ export const WorkspaceView = ({
                   navigateToGenerateTest={handleNavigateToGenerateTest}
                   courseId={backendCourseId}
                   docsHook={docsHook}
+                  openDocumentPanel={workspace.openDocumentPanel}
                 />
+              </div>
+            </div>
+          </div>
+
+          {}
+          <div
+            className={`transition-all duration-0 ease-linear overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
+              rightPanelState === "document"
+                ? "border-l opacity-100"
+                : "border-l-0 opacity-0"
+            }`}
+            style={{
+              width: rightPanelState === "document" ? `${sourcesPanelWidth}px` : "0px",
+            }}
+          >
+            {rightPanelState === "document" && (
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary-500/50 active:bg-primary-500 z-50 transition-colors"
+                onMouseDown={handleMouseDown}
+              />
+            )}
+            <div className="flex flex-col h-full w-full">
+              <div className="h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-5 bg-white dark:bg-slate-900 shrink-0">
+                <span className="font-bold text-slate-900 dark:text-slate-100 text-base truncate pr-4">
+                  {workspace.activeDocument?.name || "Document"}
+                </span>
+                <button
+                  onClick={() => setRightPanelState("closed")}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <PanelRightClose className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
+                <DocumentPanel activeDocument={workspace.activeDocument} />
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useCourses } from './useCourses.js';
 
 const isValidTab = (t) => t === 'chat' || t === 'materials' || t === 'quiz';
-const isValidPanel = (p) => p === 'studio' || p === 'sources' || p === 'closed';
+const isValidPanel = (p) => p === 'studio' || p === 'sources' || p === 'closed' || p === 'document';
 
 export function useWorkspace({
   setView,
@@ -19,6 +19,7 @@ export function useWorkspace({
   const [focusedSourceId, setFocusedSourceId] = useState(null);
   const [focusedMessageId, setFocusedMessageId] = useState(null); 
   const [activeQuizId, setActiveQuizId] = useState(null);
+  const [activeDocument, setActiveDocument] = useState(null);
 
   const { courses, loading } = useCourses();
   const [course, setCourse] = useState(null);
@@ -173,10 +174,22 @@ export function useWorkspace({
     persist({ tab: 'materials', rightPanelState: 'studio', courseBackendId: String(course?.backendId ?? workspaceState?.courseBackendId ?? '') });
   }, [course, persist, workspaceState]);
 
+  const openDocumentPanel = useCallback((doc) => {
+    if (rightPanelState === 'document' && activeDocument?.url === doc.url) {
+      setRightPanelState('studio'); 
+      setActiveDocument(null);
+      persist({ rightPanelState: 'studio', tab: mainContent, courseBackendId: String(course?.backendId ?? workspaceState?.courseBackendId ?? '') });
+    } else {
+      setActiveDocument(doc); 
+      setRightPanelState('document'); 
+      persist({ rightPanelState: 'document', tab: mainContent, courseBackendId: String(course?.backendId ?? workspaceState?.courseBackendId ?? '') });
+    }
+  }, [course, mainContent, persist, workspaceState, rightPanelState, activeDocument]);
+
   return {
     course, setCourse, mainContent, setMainContent, rightPanelState, setRightPanelState,
-    quizKey, backToChat, navigateToGenerateTest, openSources, openMaterials,
-    activeSources, focusedSourceId, focusedMessageId, activeQuizId,
+    quizKey, backToChat, navigateToGenerateTest, openSources, openMaterials, openDocumentPanel,
+    activeSources, focusedSourceId, focusedMessageId, activeQuizId, activeDocument,
     handleBackFromQuiz, loadingCourses: loading
   };
 }

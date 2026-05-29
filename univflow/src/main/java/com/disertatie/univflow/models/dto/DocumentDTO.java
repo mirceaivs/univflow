@@ -16,4 +16,5 @@ public class DocumentDTO {
     private String jobId;
     private String fileType;
     private LocalDateTime uploadDate;
+    private String url;
 }

@@ -138,6 +138,10 @@ async def ingest_documents(
             blob = bucket.blob(f"ingestion_artifacts/{course_id}/{job_id}_{file.filename}")
             
             blob.upload_from_file(file.file)
+            try:
+                blob.make_public()
+            except Exception as e:
+                print(f"[INGEST] Nu s-a putut face public blob-ul direct: {e}")
             
             
             with psycopg.connect(DB_DSN) as conn:
@@ -204,13 +208,17 @@ async def delete_entire_course_data(
     _: None = Depends(verify_internal_access)
 ):
     try:
+        job_ids = []
         with psycopg.connect(DB_DSN) as conn:
             
             conn.execute("LOAD 'age';")
             conn.execute('SET search_path = ag_catalog, "$user", public;')
             
             with conn.cursor() as cur:
-                
+                # Obținem toate job_id-urile asociate acestui curs
+                cur.execute("SELECT job_id FROM rag_system.ingestion_jobs WHERE course_id = %s", (course_id,))
+                job_ids = [row[0] for row in cur.fetchall()]
+
                 cur.execute("""
                     DELETE FROM rag_system.document_chunks 
                     WHERE metadata->>'course_id' = %s
@@ -231,6 +239,12 @@ async def delete_entire_course_data(
         blobs = bucket.list_blobs(prefix=f"ingestion_artifacts/{course_id}/")
         for blob in blobs:
             blob.delete()
+            
+        # Ștergem și imaginile/diagramele din GCS pentru fiecare job din cadrul cursului
+        for job_id in job_ids:
+            diagram_blobs = bucket.list_blobs(prefix=f"graphrag_ingestion/{job_id}/")
+            for blob in diagram_blobs:
+                blob.delete()
             
         return {"message": f"All data for course {course_id} has been purged successfully."}
     except Exception as e:

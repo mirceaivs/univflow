@@ -137,7 +137,7 @@ async def sse_interaction_generator(
             "source_file": summary_doc.metadata.get("source_file", "Rezumat Global"), 
             "header": summary_doc.metadata.get("header", "Viziune de Ansamblu"), 
             "course_id": course_id,
-            "text_extras": summary_doc.page_content 
+            "text_extras": re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', summary_doc.page_content, flags=re.DOTALL | re.IGNORECASE)
         })
         current_source_idx += 1
 
@@ -153,7 +153,7 @@ async def sse_interaction_generator(
                 "source_file": meta.get("source_file", "Fișier necunoscut"), 
                 "header": meta.get("header", "Secțiune generică"), 
                 "course_id": course_id,
-                "text_extras": doc.page_content 
+                "text_extras": re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', doc.page_content, flags=re.DOTALL | re.IGNORECASE)
             })
             current_source_idx += 1
         hybrid_knowledge_body += "\n\n".join(compiled_texts)
@@ -214,12 +214,13 @@ def clean_text_noise(text: str) -> str:
     if not text: 
         return ""
         
+    # Eliminăm descrierile de imagini AI din istoric
+    text = re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', text, flags=re.DOTALL | re.IGNORECASE)
     
-    text = re.sub(r'[^\w\s\.,;:\?!\[\]\(\)\-\+\*\/\\%="\'\|#_`]', '', text)
-    
+    # Adăugăm < și > pentru a păstra tag-urile HTML ca <img> intacte
+    text = re.sub(r'[^\w\s\.,;:\?!\[\]\(\)\-\+\*\/\\%="\'\|#_`<>]', '', text)
     
     text = re.sub(r'[ \t]{2,}', ' ', text)
-    
     
     text = re.sub(r'Indecși Cuprins \d+', '', text, flags=re.IGNORECASE) 
     

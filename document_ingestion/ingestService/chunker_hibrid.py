@@ -86,7 +86,10 @@ class MultimodalSemanticPipeline:
         
         prompt = (
             f"Ești un asistent expert. Această imagine reprezintă un/o {context_type} "
-            "dintr-un document tehnic. Oferă o descriere textuală detaliată și exhaustivă, ÎN LIMBA ROMÂNĂ."
+            "dintr-un document tehnic. Evaluează dacă imaginea este o diagramă, un grafic sau o schemă cu conținut informațional real. "
+            "Dacă imaginea este doar un element decorativ (de ex. un omuleț 3D, o pictogramă de atenționare, un semn de exclamare, un icon generic sau un bullet point), "
+            "răspunde EXACT și DOAR cu cuvântul 'DECORATIV'. "
+            "Altfel, oferă o descriere textuală detaliată și exhaustivă a informației tehnice, ÎN LIMBA ROMÂNĂ."
         )
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
         message = HumanMessage(
@@ -213,6 +216,12 @@ class MultimodalSemanticPipeline:
                     page_text = re.sub(r'^\s*\d+\s*-\s*\d+\s*$', '', page_text, flags=re.MULTILINE)
                     page_text = re.sub(r'^\s*(pag(ina|\.)?|page)?\s*\d+\s*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
                     
+                    # Eliminam imaginile neprocesate (intentionally omitted)
+                    page_text = re.sub(r'==>\s*picture.*?intentionally omitted\s*<==', '', page_text, flags=re.IGNORECASE)
+                    
+                    # Curățare zgomot de header/footer specific (Data Warehousing)
+                    page_text = re.sub(r'(?i)^\s*Data Warehousing & Business Intelligence\s*$', '', page_text, flags=re.MULTILINE)
+                    page_text = re.sub(r'(?i)^\s*5\.\s*Indecși\s*$', '', page_text, flags=re.MULTILINE)
                     
                     if 'images' in page_data:
                         for img_meta in page_data['images']:
@@ -220,8 +229,12 @@ class MultimodalSemanticPipeline:
                                 try:
                                     image_url, ai_description = img_meta['future_data'].result()
                                     
+                                    if ai_description.strip().upper() == 'DECORATIV':
+                                        continue
+                                        
                                     injection_block = (
-                                        f"\n\n![Diagramă]({image_url})\n"
+                                        f"\n\n**[Imagine de referință extrasă din curs]**\n"
+                                        f"<img src=\"{image_url}\" style=\"max-width: 50%; height: auto;\" alt=\"Diagramă\"/>\n"
                                         f"<ai_vision_description>{ai_description}</ai_vision_description>\n\n"
                                     )
                                     page_text += injection_block
@@ -231,6 +244,10 @@ class MultimodalSemanticPipeline:
                     comprehensive_markdown_pages.append(page_text)
             
             full_document_text = "\n".join(comprehensive_markdown_pages)
+            
+            # Corectam problemele de formatare specifice LaTeX/Math rezultate din pymupdf4llm
+            full_document_text = re.sub(r'\$B\^\*Tree\$', 'B*Tree', full_document_text)
+            
             full_document_text = re.sub(r'\n{3,}', '\n\n', full_document_text)
         finally:
             pdf_document.close()
