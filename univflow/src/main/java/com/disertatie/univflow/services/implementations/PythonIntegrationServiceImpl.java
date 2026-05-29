@@ -124,7 +124,6 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
 
     @Override
     public ResponseEntity<StreamingResponseBody> askAiQuestionStream(String question, String courseId) {
-        
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         String signalKey = email + "|" + courseId;
         stopSignals.put(signalKey, false);
@@ -133,42 +132,39 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
         StreamingResponseBody responseBody = outputStream -> {
             if (Boolean.TRUE.equals(stopSignals.get(signalKey))) return;
             try {
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                headers.set("X-Course-Id", courseId);
-                headers.set("X-User-Id", email);
-                headers.set("X-Internal-Service-Key", internalApiKey);
-
-                streamingRestTemplate.execute(
-                        askServiceUrl + "/api/ask/stream",
-                        HttpMethod.POST,
-                        request -> {
-                            request.getHeaders().addAll(headers);
-                            objectMapper.writeValue(request.getBody(), payload);
-                        },
-                        response -> {
-                            if (response.getStatusCode().isError()) {
-                                handleStreamError(response, outputStream);
-                                return null;
+                this.webClient.post()
+                        .uri("/api/ask/stream")
+                        .header("X-Course-Id", courseId)
+                        .header("X-User-Id", email)
+                        .header("X-Internal-Service-Key", internalApiKey)
+                        .bodyValue(payload)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .retrieve()
+                        .bodyToFlux(org.springframework.core.io.buffer.DataBuffer.class)
+                        .doOnNext(dataBuffer -> {
+                            if (Boolean.TRUE.equals(stopSignals.get(signalKey))) {
+                                throw new RuntimeException("Stream stopped by user");
                             }
-                            try (InputStream is = response.getBody()) {
-                                byte[] buffer = new byte[8192];
-                                int bytesRead;
-                                while ((bytesRead = is.read(buffer)) != -1) {
-                                    if (Boolean.TRUE.equals(stopSignals.get(signalKey))) break;
-                                    outputStream.write(buffer, 0, bytesRead);
-                                    outputStream.flush();
-                                }
+                            try {
+                                byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                                dataBuffer.read(bytes);
+                                outputStream.write(bytes);
+                                outputStream.flush();
+                            } catch (IOException e) {
+                                throw new RuntimeException("Error writing to output stream", e);
                             } finally {
-                                stopSignals.remove(signalKey);
+                                org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
                             }
-                            return null;
-                        }
-                );
+                        })
+                        .doOnError(throwable -> log.error("Error in WebClient stream: {}", throwable.getMessage()))
+                        .blockLast();
             } catch (Exception e) {
-                log.error("Critical error in AI Stream: {}", e.getMessage());
+                log.error("Critical error in AI Stream", e);
+            } finally {
+                stopSignals.remove(signalKey);
             }
         };
+
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_EVENT_STREAM)
                 .header("X-Accel-Buffering", "no")

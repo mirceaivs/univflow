@@ -99,7 +99,8 @@ export function useChat({ courseId } = {}) {
         const csrfToken = csrfCookie ? decodeURIComponent(csrfCookie.split('=')[1]) : '';
         const headers = { 
           'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'text/event-stream'
         };
         if (csrfToken) headers['X-XSRF-TOKEN'] = csrfToken;
         return headers;

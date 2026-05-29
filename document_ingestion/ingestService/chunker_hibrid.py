@@ -139,57 +139,26 @@ class MultimodalSemanticPipeline:
 
                     # Dacă pymupdf4llm nu a extras imagini individuale, dar pagina conține desene vectoriale complexe
                     # (cum ar fi diagrame ER în format vectorial: Visio/Draw.io) sau imagini pe care nu le-a extras,
-                    # determinăm regiunea activă a acestora și o decupăm (crop) în loc de a randa întreaga pagină
+                    # randăm și trimitem întreaga pagină către modelul vizual Gemini pentru descriere
                     if not has_extracted_images:
                         drawings = page.get_drawings()
                         images = page.get_images()
                         
                         if len(images) > 0 or len(drawings) > 10:
-                            drawings_rect = fitz.Rect()
-                            
-                            # Includem desenele vectoriale
-                            for d in drawings:
-                                r = fitz.Rect(d.get("rect"))
-                                # Ignorăm elementele de fundal/border care ocupă aproape toată pagina
-                                if r.width >= page.rect.width * 0.95 and r.height >= page.rect.height * 0.95:
-                                    continue
-                                drawings_rect.include_rect(r)
-                            
-                            # Includem imagini raster
-                            if len(images) > 0:
-                                for img in images:
-                                    xref = img[0]
-                                    for r in page.get_image_rects(xref):
-                                        drawings_rect.include_rect(r)
-                            
-                            # Dacă bounding box-ul determinat nu este gol, decupăm acea zonă
-                            if not drawings_rect.is_empty:
-                                # Adăugăm un padding de 15px pentru a nu tăia din margini/texte explicative ale diagramei
-                                clip_rect = fitz.Rect(
-                                    max(0, drawings_rect.x0 - 15),
-                                    max(0, drawings_rect.y0 - 15),
-                                    min(page.rect.width, drawings_rect.x1 + 15),
-                                    min(page.rect.height, drawings_rect.y1 + 15)
-                                )
-                                label = "diagramă decupată"
-                            else:
-                                clip_rect = page.rect
-                                label = "diagramă/schemă completă pe pagină"
-                            
-                            pix = page.get_pixmap(clip=clip_rect, dpi=200)
+                            pix = page.get_pixmap(dpi=200)
                             future = executor.submit(
                                 self._interpret_visual_element,
                                 pix.tobytes("png"),
-                                label,
+                                "diagramă/schemă completă pe pagină",
                                 storage_client,
                                 bucket_name,
                                 job_id,
-                                f"p{page_index}_crop"
+                                f"p{page_index}_full"
                             )
                             if 'images' not in page_data:
                                 page_data['images'] = []
                             page_data['images'].append({
-                                'bbox': [clip_rect.x0, clip_rect.y0, clip_rect.x1, clip_rect.y1],
+                                'bbox': [0, 0, page.rect.width, page.rect.height],
                                 'future_data': future
                             })
 
