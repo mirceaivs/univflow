@@ -8,6 +8,10 @@ const cleanRawText = (rawText) => {
   if (!rawText) return "Fragment de text indisponibil.";
   let text = rawText;
 
+  // Eliminăm descrierile vizuale generate de AI (atât formatul vechi cât și cel nou) pentru a păstra doar imaginea
+  text = text.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
+  text = text.replace(/<ai_vision_description>[\s\S]*?<\/ai_vision_description>/gi, "");
+
   // Pasul 1: Separă rândurile tabelelor concatenate orizontal (dacă sunt separate prin | | )
   text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");
 

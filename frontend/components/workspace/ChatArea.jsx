@@ -28,6 +28,10 @@ function preprocessMarkdown(text) {
   if (!text) return "";
   let processedText = text;
 
+  // Eliminăm descrierile vizuale (să nu fie afișate nici în chat-ul text, ele existând doar pentru contextul AI-ului)
+  processedText = processedText.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
+  processedText = processedText.replace(/<ai_vision_description>[\s\S]*?<\/ai_vision_description>/gi, "");
+
   processedText = processedText.replace(
     /(^|[ \n(])\*([^*\n]+)\*(?=[ \n).,:;!?]|$)/g,
     "$1**$2**"

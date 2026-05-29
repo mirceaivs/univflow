@@ -73,9 +73,24 @@ async def get_global_summary(pool: AsyncConnectionPool, course_id: str) -> List[
 
 async def get_recent_history(pool: AsyncConnectionPool, session_id: str) -> List[Any]:
     async with pool.connection() as conn:
-        history_store = PostgresChatMessageHistory(HISTORY_TABLE_NAME, session_id, async_connection=conn)
-        messages = await history_store.aget_messages()
-        return messages[-6:] if len(messages) > 6 else messages
+        async with conn.cursor() as cur:
+            await cur.execute(f"""
+                SELECT message FROM rag_system.{HISTORY_TABLE_NAME}
+                WHERE session_id = %s
+                ORDER BY id DESC LIMIT 6
+            """, (session_id,))
+            rows = await cur.fetchall()
+            
+            messages = []
+            for row in reversed(rows):
+                msg_json = row[0]
+                msg_type = msg_json.get("type")
+                content = msg_json.get("data", {}).get("content", "")
+                if msg_type == "human":
+                    messages.append(HumanMessage(content=content))
+                elif msg_type == "ai":
+                    messages.append(AIMessage(content=content))
+            return messages
 
 async def persist_chat_interaction(pool: AsyncConnectionPool, session_id: str, user_q: str, ai_a: str, citations: List[dict]):
     async with pool.connection() as conn:

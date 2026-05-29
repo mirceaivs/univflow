@@ -139,26 +139,57 @@ class MultimodalSemanticPipeline:
 
                     # Dacă pymupdf4llm nu a extras imagini individuale, dar pagina conține desene vectoriale complexe
                     # (cum ar fi diagrame ER în format vectorial: Visio/Draw.io) sau imagini pe care nu le-a extras,
-                    # randăm și trimitem întreaga pagină către modelul vizual Gemini pentru descriere
+                    # determinăm regiunea activă a acestora și o decupăm (crop) în loc de a randa întreaga pagină
                     if not has_extracted_images:
                         drawings = page.get_drawings()
                         images = page.get_images()
                         
                         if len(images) > 0 or len(drawings) > 10:
-                            pix = page.get_pixmap(dpi=200)
+                            drawings_rect = fitz.Rect()
+                            
+                            # Includem desenele vectoriale
+                            for d in drawings:
+                                r = fitz.Rect(d.get("rect"))
+                                # Ignorăm elementele de fundal/border care ocupă aproape toată pagina
+                                if r.width >= page.rect.width * 0.95 and r.height >= page.rect.height * 0.95:
+                                    continue
+                                drawings_rect.include_rect(r)
+                            
+                            # Includem imagini raster
+                            if len(images) > 0:
+                                for img in images:
+                                    xref = img[0]
+                                    for r in page.get_image_rects(xref):
+                                        drawings_rect.include_rect(r)
+                            
+                            # Dacă bounding box-ul determinat nu este gol, decupăm acea zonă
+                            if not drawings_rect.is_empty:
+                                # Adăugăm un padding de 15px pentru a nu tăia din margini/texte explicative ale diagramei
+                                clip_rect = fitz.Rect(
+                                    max(0, drawings_rect.x0 - 15),
+                                    max(0, drawings_rect.y0 - 15),
+                                    min(page.rect.width, drawings_rect.x1 + 15),
+                                    min(page.rect.height, drawings_rect.y1 + 15)
+                                )
+                                label = "diagramă decupată"
+                            else:
+                                clip_rect = page.rect
+                                label = "diagramă/schemă completă pe pagină"
+                            
+                            pix = page.get_pixmap(clip=clip_rect, dpi=200)
                             future = executor.submit(
                                 self._interpret_visual_element,
                                 pix.tobytes("png"),
-                                "diagramă/schemă completă pe pagină",
+                                label,
                                 storage_client,
                                 bucket_name,
                                 job_id,
-                                f"p{page_index}_full"
+                                f"p{page_index}_crop"
                             )
                             if 'images' not in page_data:
                                 page_data['images'] = []
                             page_data['images'].append({
-                                'bbox': [0, 0, page.rect.width, page.rect.height],
+                                'bbox': [clip_rect.x0, clip_rect.y0, clip_rect.x1, clip_rect.y1],
                                 'future_data': future
                             })
 
@@ -169,8 +200,8 @@ class MultimodalSemanticPipeline:
                     page_text = re.sub(r'<br\s*/?>', ' ', page_text)
                     
                     # 2. Ștergem liniile de copyright evidente și drepturi rezervate
-                    page_text = re.sub(r'(?i).*copyright\s*(©|\(c\)|&copy;).*', '', page_text)
-                    page_text = re.sub(r'(?i).*toate\s+drepturile\s+rezervate.*', '', page_text)
+                    page_text = re.sub(r'(?i)^.*(?:copyright|©|\(c\)|&copy;).*$', '', page_text, flags=re.MULTILINE)
+                    page_text = re.sub(r'(?i)^.*toate\s+drepturile\s+rezervate.*$', '', page_text, flags=re.MULTILINE)
                     
                     # 3. Eliminăm liniile din cuprins (cu cel puțin 4 puncte consecutive)
                     page_text = re.sub(r'^.*\.{4,}.*$', '', page_text, flags=re.MULTILINE)
@@ -191,7 +222,7 @@ class MultimodalSemanticPipeline:
                                     
                                     injection_block = (
                                         f"\n\n![Diagramă]({image_url})\n"
-                                        f"**Descriere Vizuală (Generată AI):** {ai_description}\n\n"
+                                        f"<ai_vision_description>{ai_description}</ai_vision_description>\n\n"
                                     )
                                     page_text += injection_block
                                 except Exception as e:
