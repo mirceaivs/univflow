@@ -4,6 +4,9 @@ FROM ghcr.io/graalvm/native-image-community:25 AS builder
 # Salvează calea către GraalVM 25 preinstalat
 ENV GRAALVM_HOME=$JAVA_HOME
 
+# Limitează memoria heap a compilatorului GraalVM la 5GB pentru a preveni crash-ul OOM (exit code 137)
+ENV NATIVE_IMAGE_OPTIONS="-J-Xmx5g"
+
 # Instalăm OpenJDK 21, findutils (pentru xargs) și which
 RUN microdnf install -y java-21-openjdk-devel findutils which
 
