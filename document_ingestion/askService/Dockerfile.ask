@@ -28,6 +28,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copiem codul sursă al serviciului
 COPY . .
 
+# Pre-compilăm codul în bytecode (.pyc) pentru a evita compilarea la startup
+RUN python -m compileall .
+
 ENV GCS_BASE_URL=https://storage.googleapis.com
 
 # Creăm utilizatorul non-root cloudrun pentru securitate sporită
@@ -37,5 +40,5 @@ USER cloudrun
 # Expunem portul standard pentru Cloud Run (8080)
 EXPOSE 8080
 
-# Comanda de start pentru managementul memoriei sub Cloud Run
-ENTRYPOINT ["sh", "-c", "gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --max-requests 1000 --max-requests-jitter 100 -b 0.0.0.0:${PORT:-8080}"]
+# Comanda de start pentru managementul memoriei sub Cloud Run (adaugat --preload)
+ENTRYPOINT ["sh", "-c", "gunicorn main:app --preload -w 4 -k uvicorn.workers.UvicornWorker --max-requests 1000 --max-requests-jitter 100 -b 0.0.0.0:${PORT:-8080}"]
