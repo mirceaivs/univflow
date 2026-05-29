@@ -167,7 +167,11 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                 log.error("Critical error in AI Stream: {}", e.getMessage());
             }
         };
-        return ResponseEntity.ok().contentType(MediaType.TEXT_EVENT_STREAM).body(responseBody);
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .header("X-Accel-Buffering", "no")
+                .header("Cache-Control", "no-cache")
+                .body(responseBody);
     }
 
     
@@ -197,7 +201,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
             return response.getBody();
 
         } catch (Exception e) {
-            log.error("Ingestion Service communication error: {}", e.getMessage());
+            log.error("Ingestion Service communication error", e);
             throw new RuntimeException("Serviciul de Ingestie Python este indisponibil.");
         }
     }
@@ -222,6 +226,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                     String.class
             );
         } catch (Exception e) {
+            log.error("Failed to sync document deletion with Python for job: {}", jobId, e);
             throw new RuntimeException("Nu s-a putut sincroniza ștergerea cu serviciile Python.");
         }
     }
