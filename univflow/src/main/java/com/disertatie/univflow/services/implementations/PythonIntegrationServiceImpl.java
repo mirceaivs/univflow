@@ -36,6 +36,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
 
     private final ObjectMapper objectMapper;
     private final RestTemplate cleanRestTemplate;
+    private final RestTemplate streamingRestTemplate;
     private final Map<String, Boolean> stopSignals = new ConcurrentHashMap<>();
 
     @Value("${python.service.internal-key}")
@@ -54,6 +55,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
         this.objectMapper = objectMapper;
         this.webClientBuilder = webClientBuilder;
         this.cleanRestTemplate = new RestTemplate();
+        this.streamingRestTemplate = new RestTemplate();
         
         this.cleanRestTemplate.setInterceptors(List.of(new ClientHttpRequestInterceptor() {
             @Override
@@ -137,7 +139,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                 headers.set("X-User-Id", email);
                 headers.set("X-Internal-Service-Key", internalApiKey);
 
-                cleanRestTemplate.execute(
+                streamingRestTemplate.execute(
                         askServiceUrl + "/api/ask/stream",
                         HttpMethod.POST,
                         request -> {
