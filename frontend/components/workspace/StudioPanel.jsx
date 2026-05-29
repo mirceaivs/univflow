@@ -126,25 +126,17 @@ export const StudioPanel = ({ mainContent, setMainContent, navigateToGenerateTes
               {(materials || []).map((mat) => (
                 <div
                   key={mat.id}
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors"
+                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 group transition-colors cursor-pointer"
                   title={mat.name}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDocumentPanel && openDocumentPanel({ url: mat.url, name: mat.name });
+                  }}
                 >
                   <FileText className={`w-4 h-4 ${mat.type === 'pdf' ? 'text-red-500 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`} />
-                  {mat.url ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDocumentPanel && openDocumentPanel({ url: mat.url, name: mat.name });
-                      }}
-                      className="text-sm text-left text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-slate-900 dark:group-hover:text-slate-100 font-medium hover:underline cursor-pointer bg-transparent border-0 p-0"
-                    >
-                      {mat.name}
-                    </button>
-                  ) : (
-                    <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-slate-900 dark:group-hover:text-slate-100 font-medium">
-                      {mat.name}
-                    </span>
-                  )}
+                  <span className="text-sm text-left text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-slate-900 dark:group-hover:text-slate-100 font-medium group-hover:underline">
+                    {mat.name}
+                  </span>
                 </div>
               ))}
             </>

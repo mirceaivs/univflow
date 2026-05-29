@@ -4,8 +4,6 @@ from fastapi import APIRouter, Request, Header, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from deps import get_embeddings_model, get_llm
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_vertexai import VertexAIEmbeddings
 from config import INTERNAL_API_KEY
 from schemas import AskRequest, QuizRequest, Quiz
 from services import sse_interaction_generator, clean_text_noise, get_vector_context, get_global_summary
@@ -27,10 +25,11 @@ async def handle_ask_query(
     payload: AskRequest,
     x_user_id: str = Header(..., description="ID student"),
     x_course_id: str = Header(..., description="ID curs"),
-    embeddings_model: VertexAIEmbeddings = Depends(get_embeddings_model),
-    llm: ChatGoogleGenerativeAI = Depends(get_llm),
+    embeddings_model: "VertexAIEmbeddings" = Depends(get_embeddings_model),
+    llm: "ChatGoogleGenerativeAI" = Depends(get_llm),
     _: None = Depends(verify_internal_access)
 ):
+
     if not payload.question.strip(): raise HTTPException(status_code=400, detail="Întrebare goală.")
     return StreamingResponse(
         sse_interaction_generator(
@@ -120,8 +119,8 @@ async def generate_quiz(
     course_id: str,
     payload: QuizRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
-    embeddings_model: VertexAIEmbeddings = Depends(get_embeddings_model),
-    llm: ChatGoogleGenerativeAI = Depends(get_llm),
+    embeddings_model: "VertexAIEmbeddings" = Depends(get_embeddings_model),
+    llm: "ChatGoogleGenerativeAI" = Depends(get_llm),
     _: None = Depends(verify_internal_access)
 ):
     pool = request.app.state.db_pool

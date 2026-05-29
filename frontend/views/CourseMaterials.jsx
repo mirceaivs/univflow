@@ -97,7 +97,7 @@ export const CourseMaterialsView = ({ setView, courseId, course }) => {
                   key={mat.id}
                   className="p-5 flex flex-col h-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => {
-                    if (mat.url) setPreviewDocument(mat);
+                    setPreviewDocument(mat);
                   }}
                 >
                   <div className="flex justify-between items-start mb-4">

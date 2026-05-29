@@ -16,6 +16,7 @@ import {
   Library,
   Microscope,
   Loader2,
+  X,
 } from "lucide-react";
 import { Card, Badge, Button } from "../ui.jsx";
 import { MaterialCard } from "../MaterialCard.jsx";
@@ -44,6 +45,7 @@ export const MaterialsArea = ({
   docsHook,
 }) => {
   const [viewMode, setViewMode] = useState("grid");
+  const [previewDocument, setPreviewDocument] = useState(null);
 
   const { materials, loading, error, deleteDocument } = docsHook || useDocuments({
     courseId,
@@ -262,6 +264,7 @@ export const MaterialsArea = ({
                   material={mat}
                   viewMode={viewMode}
                   onDelete={deleteDocument}
+                  onClick={() => setPreviewDocument(mat)}
                 />
               ))}
           </div>
@@ -282,6 +285,32 @@ export const MaterialsArea = ({
           />
         </div>
       </div>
+
+      {previewDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setPreviewDocument(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary-500" />
+                {previewDocument.name}
+              </h3>
+              <button 
+                onClick={() => setPreviewDocument(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 w-full bg-slate-100 dark:bg-slate-950">
+              <iframe
+                src={`${previewDocument.url}#toolbar=0`}
+                className="w-full h-full border-0"
+                title={previewDocument.name}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

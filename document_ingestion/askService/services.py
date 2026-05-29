@@ -5,10 +5,7 @@ import re
 from typing import AsyncGenerator, List, Any
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_postgres.chat_message_histories import PostgresChatMessageHistory
 from psycopg_pool import AsyncConnectionPool
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_vertexai import VertexAIEmbeddings
 from config import GRAPH_NAME, HISTORY_TABLE_NAME, RAG_PROMPT
 
 async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str) -> str:
@@ -43,7 +40,7 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
         return "RELAȚII CONCEPTUALE EXTRASE DIN GRAF:\n" + "\n".join(graph_results)
     return ""
 
-async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: VertexAIEmbeddings, question: str, course_id: str) -> List[Document]:
+async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "VertexAIEmbeddings", question: str, course_id: str) -> List[Document]:
     query_embedding = await embeddings_model.aembed_query(question)
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
@@ -93,6 +90,7 @@ async def get_recent_history(pool: AsyncConnectionPool, session_id: str) -> List
             return messages
 
 async def persist_chat_interaction(pool: AsyncConnectionPool, session_id: str, user_q: str, ai_a: str, citations: List[dict]):
+    from langchain_postgres.chat_message_histories import PostgresChatMessageHistory
     async with pool.connection() as conn:
         history_store = PostgresChatMessageHistory(HISTORY_TABLE_NAME, session_id, async_connection=conn)
         human_msg = HumanMessage(content=user_q)
@@ -101,8 +99,8 @@ async def persist_chat_interaction(pool: AsyncConnectionPool, session_id: str, u
 
 async def sse_interaction_generator(
     db_pool: AsyncConnectionPool,
-    embeddings_model: VertexAIEmbeddings,
-    llm: ChatGoogleGenerativeAI,
+    embeddings_model: "VertexAIEmbeddings",
+    llm: "ChatGoogleGenerativeAI",
     request_obj,
     question: str,
     user_id: str,

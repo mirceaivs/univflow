@@ -1,12 +1,10 @@
 from functools import lru_cache
 import os
-from google.oauth2 import service_account
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_vertexai import VertexAIEmbeddings
 from config import PROJECT_ID, LOCATION, LLM_MODEL_NAME
 
 @lru_cache(maxsize=1)
 def get_credentials():
+    from google.oauth2 import service_account
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if credentials_path and os.path.exists(credentials_path):
         return service_account.Credentials.from_service_account_file(
@@ -21,17 +19,20 @@ def get_credentials():
         return credentials
 
 @lru_cache(maxsize=1)
-def get_embeddings_model() -> VertexAIEmbeddings:
-    # VertexAIEmbeddings properly handles service account credentials + project + location
+def get_embeddings_model():
+    from langchain_google_vertexai import VertexAIEmbeddings
+    # VertexAIEmbeddings does not support "global" location; default to europe-west3
+    emb_location = LOCATION if LOCATION and LOCATION != "global" else "europe-west3"
     return VertexAIEmbeddings(
         model_name="text-embedding-005",
         project=PROJECT_ID,
-        location=LOCATION,
+        location=emb_location,
         credentials=get_credentials()
     )
 
 @lru_cache(maxsize=1)
-def get_llm() -> ChatGoogleGenerativeAI:
+def get_llm():
+    from langchain_google_genai import ChatGoogleGenerativeAI
     return ChatGoogleGenerativeAI(
         model=LLM_MODEL_NAME,
         project=PROJECT_ID,
@@ -41,3 +42,4 @@ def get_llm() -> ChatGoogleGenerativeAI:
         streaming=True,
         max_retries=2
     )
+
