@@ -29,14 +29,6 @@ resource "google_storage_bucket" "ingestion_bucket" {
   force_destroy = false
   uniform_bucket_level_access = true
 
-  lifecycle_rule {
-    condition {
-      age = 7
-    }
-    action {
-      type = "Delete"
-    }
-  }
 
   soft_delete_policy {
     retention_duration_seconds = 0
