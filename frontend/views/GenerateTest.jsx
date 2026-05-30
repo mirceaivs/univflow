@@ -44,6 +44,7 @@ export const GenerateTestView = ({
   onStart,
   navParams,
   clearNavParams,
+  openCourseTab,
   startQuizGeneration,
   activeQuizGenerations,
 }) => {
@@ -80,6 +81,8 @@ export const GenerateTestView = ({
     questionCount,
     setQuestionCount,
     isGenerating,
+    isProcessing,
+    isCourseProcessing,
     years,
     semesters,
     sortOptions,
@@ -240,6 +243,7 @@ export const GenerateTestView = ({
                 {filteredCourses.map((course) => {
                   const isSelecting = selectingId === course.id;
                   const hasNoDocs = !course.docs || course.docs === 0;
+                  const isCourseIngesting = isCourseProcessing(course.backendId ?? course.id);
 
                   return (
                     <div
@@ -248,6 +252,8 @@ export const GenerateTestView = ({
                       className={`transition-all duration-300 ${
                         hasNoDocs
                           ? "opacity-60 grayscale"
+                          : isCourseIngesting
+                          ? "opacity-70 grayscale cursor-not-allowed"
                           : isSelecting
                           ? "scale-95 opacity-50 ring-2 ring-primary-500 rounded-2xl cursor-pointer"
                           : "hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
@@ -256,7 +262,13 @@ export const GenerateTestView = ({
                       <CourseCard
                         course={course}
                         variant={viewMode}
-                        actionText={hasNoDocs ? "Adaugă Materiale" : "Selectează Curs"}
+                        actionText={
+                          hasNoDocs 
+                            ? "Adaugă Materiale" 
+                            : isCourseIngesting 
+                            ? "Procesare materiale..." 
+                            : "Selectează Curs"
+                        }
                         onClick={(e) => {
                           if (hasNoDocs) {
                             e.stopPropagation();
@@ -316,10 +328,10 @@ export const GenerateTestView = ({
                 {}
                 <div className="lg:col-span-1 space-y-6">
                   <Card className="p-6 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-                    <div className="w-12 h-12 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 rounded-xl flex items-center justify-center mb-6">
+                    <div className="w-12 h-12 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-xl flex items-center justify-center mb-6">
                       {React.createElement(
                         genericIcons[
-                          selectedCourse.name?.length % genericIcons.length || 0
+                          selectedCourse.id % genericIcons.length
                         ],
                         { className: "w-6 h-6 text-primary-600 dark:text-primary-400" }
                       )}
@@ -451,12 +463,16 @@ export const GenerateTestView = ({
                       onClick={handleGenerate}
                       size="lg"
                       className="w-full gap-3 text-xl h-16 shadow-lg shadow-primary-500/30 hover:shadow-xl hover:-translate-y-1 transition-all disabled:hover:translate-y-0"
-                      disabled={isGenerating}
+                      disabled={isGenerating || isProcessing}
                     >
                       {isGenerating ? (
                         <>
                           <Loader2 className="w-6 h-6 animate-spin" /> Se
                           generează...
+                        </>
+                      ) : isProcessing ? (
+                        <>
+                          <Loader2 className="w-6 h-6 animate-spin" /> Se procesează materiale...
                         </>
                       ) : (
                         <>

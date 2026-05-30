@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useCourses } from './useCourses.js';
 import { apiClient } from '../services/apiClient.js';
 import { useNotification } from '../components/context/NotificationContext.jsx';
+import { useIngestion } from '../components/context/IngestionContext.jsx';
 
 const YEARS = ['Toate', 'Anul 1', 'Anul 2', 'Anul 3', 'Anul 4', 'Anul 5', 'Anul 6'];
 const SEMESTERS = ['Toate', 'Semestrul 1', 'Semestrul 2'];
@@ -17,6 +18,7 @@ export function useGenerateTest({
 }) {
   const { courses, loading, error } = useCourses();
   const { showNotification } = useNotification();
+  const { activeJobs } = useIngestion();
 
   const [step, setStep] = useState(1);
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -36,6 +38,20 @@ export function useGenerateTest({
   const [questionCount, setQuestionCount] = useState(10);
   const selectedCourseId = selectedCourse?.backendId ?? selectedCourse?.id;
   const isGenerating = !!(activeQuizGenerations && selectedCourseId && activeQuizGenerations[selectedCourseId]);
+
+  const isCourseProcessing = useCallback((courseId) => {
+    return Object.values(activeJobs || {}).some(
+      (job) =>
+        String(job.courseId) === String(courseId) &&
+        job.status !== "COMPLETED" &&
+        job.status !== "FAILED"
+    );
+  }, [activeJobs]);
+
+  const isProcessing = useMemo(() => {
+    if (!selectedCourseId) return false;
+    return isCourseProcessing(selectedCourseId);
+  }, [selectedCourseId, isCourseProcessing]);
 
   useEffect(() => {
     if (!navParams) return;
@@ -79,6 +95,14 @@ export function useGenerateTest({
       });
       return;
     }
+    const cId = course.backendId ?? course.id;
+    if (isCourseProcessing(cId)) {
+      showNotification({
+        type: "warning",
+        message: "Asistentul AI analizează noile materiale încărcate pentru acest curs. Te rugăm să aștepți finalizarea procesării pentru a putea genera teste.",
+      });
+      return;
+    }
     setSelectingId(course.id);
     setTimeout(() => {
       setIsTransitioning(true);
@@ -89,7 +113,7 @@ export function useGenerateTest({
         setSelectingId(null);
       }, 300);
     }, 400);
-  }, [showNotification]);
+  }, [showNotification, isCourseProcessing]);
 
   const handleBack = useCallback(() => {
     if (returnTo === 'workspace') {
@@ -108,8 +132,15 @@ export function useGenerateTest({
 
   const handleGenerate = useCallback(async () => {
     if (!selectedCourse) return;
+    if (isProcessing) {
+      showNotification({
+        type: "warning",
+        message: "Asistentul AI analizează noile materiale încărcate pentru acest curs. Te rugăm să aștepți finalizarea procesării pentru a putea genera teste.",
+      });
+      return;
+    }
     startQuizGeneration(selectedCourse, subject, difficulty, questionCount);
-  }, [selectedCourse, subject, difficulty, questionCount, startQuizGeneration]);
+  }, [selectedCourse, subject, difficulty, questionCount, startQuizGeneration, isProcessing, showNotification]);
 
   const setYearAndResetSem = useCallback((year) => {
     setSelectedYear(year);
@@ -143,6 +174,8 @@ export function useGenerateTest({
     setQuestionCount,
 
     isGenerating,
+    isProcessing,
+    isCourseProcessing,
     years: YEARS,
     semesters: SEMESTERS,
     sortOptions: SORT_OPTIONS,

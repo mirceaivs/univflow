@@ -153,14 +153,23 @@ async def generate_quiz(
         else "2. EXACT O SINGURĂ variantă trebuie să fie corectă (single-select), restul false."
     )
 
+    difficulty_guideline = ""
+    if payload.difficulty.upper() == "UȘOR":
+        difficulty_guideline = "Pentru nivelul UȘOR, generează întrebări directe, de reamintire sau definiții simple din context."
+    elif payload.difficulty.upper() == "AVANSAT":
+        difficulty_guideline = "Pentru nivelul AVANSAT, generează întrebări de analiză profundă, corelații complexe, scenarii de aplicare sau deducții din context."
+    else:
+        difficulty_guideline = "Pentru nivelul MEDIU, generează întrebări de înțelegere generală, asocieri logice standard sau interpretări de bază ale conceptelor."
+
     prompt = f"""Ești un profesor universitar expert și un tutore de învățat. Pe baza contextului furnizat, generează un test grilă cu {payload.num_questions} întrebări despre subiectul: "{payload.topic}".
-    NIVEL DE DIFICULTATE: {payload.difficulty.upper()}.
+    NIVEL DE DIFICULTATE: {payload.difficulty.upper()}. {difficulty_guideline}
     REGULI STRICTE DE FORMATARE:
     1. Fiecare întrebare trebuie să aibă EXACT {payload.options_per_question} variante de răspuns.
     2. FEEDBACK OBLIGATORIU: Pentru fiecare variantă de răspuns (atât corecte, cât și greșite), completează câmpul 'feedback' detaliat.
     3. OBLIGATORIU CRITIC: Amestecă ordinea răspunsurilor (NU pune mereu varianta corectă prima). Trebuie să fie distribuit aleator.
     {multi_select_rule}
     4. Toate informațiile trebuie extrase STRICT din contextul furnizat.
+    5. LEGĂTURĂ CU CONTEXTUL & FALLBACK: Toate întrebările trebuie să se bazeze EXCLUSIV pe contextul furnizat. Dacă subiectul solicitat ("{payload.topic}") NU este acoperit de contextul furnizat (este complet diferit sau irelevant), NU inventa informații din exterior. În schimb, revino la conceptele generale prezente în context (generează testul pe baza materiei disponibile) și adaugă o notă explicativă succintă la începutul câmpului 'explanation' al primei întrebări (de exemplu: "[Notă: Subiectul solicitat nu este acoperit de materialele cursului. Testul a fost generat pe baza conceptelor generale disponibile.]").
     CONTEXT:\n{context_text}"""
     
     try:

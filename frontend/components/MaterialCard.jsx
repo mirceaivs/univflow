@@ -10,8 +10,12 @@ export const MaterialCard = ({ material, viewMode = 'grid', onClick, onDelete })
           <FileText className="w-5 h-5" />
         </div>
         {viewMode === 'grid' && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete?.(material.id); }} className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-1 transition-colors" title="Șterge material">
-            <Trash2 className="w-4 h-4" />
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDelete?.(material.id); }} 
+            className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-2 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" 
+            title="Șterge material"
+          >
+            <Trash2 className="w-5 h-5" />
           </button>
         )}
       </div>
@@ -26,7 +30,11 @@ export const MaterialCard = ({ material, viewMode = 'grid', onClick, onDelete })
           <Badge key={tag} variant="default" className="text-[10px] px-2 py-0.5">{tag}</Badge>
         ))}
         {viewMode === 'list' && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete?.(material.id); }} className="ml-4 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-2 transition-colors rounded-md hover:bg-red-50 dark:hover:bg-red-900/20" title="Șterge material">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDelete?.(material.id); }} 
+            className="ml-4 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 p-2 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" 
+            title="Șterge material"
+          >
             <Trash2 className="w-5 h-5" />
           </button>
         )}
