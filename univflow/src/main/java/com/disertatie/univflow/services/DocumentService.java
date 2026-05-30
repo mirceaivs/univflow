@@ -11,4 +11,5 @@ public interface DocumentService {
     Document getById(String documentId);
     void saveAll(List<Document> documents);
     void deleteDocument(String documentId, String userEmail);
+    String getPreviewUrl(String documentId, String userEmail);
 }

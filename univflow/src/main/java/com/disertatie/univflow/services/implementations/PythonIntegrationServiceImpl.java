@@ -335,4 +335,26 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
 
         return response.getBody();
     }
+
+    @Override
+    public String getSignedUrl(String jobId) {
+        String url = ingestServiceUrl + "/api/documents/" + jobId + "/signed-url";
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Internal-Service-Key", internalApiKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = cleanRestTemplate.exchange(
+                    url, HttpMethod.GET, entity, Map.class
+            );
+
+            if (response.getBody() != null && response.getBody().containsKey("url")) {
+                return (String) response.getBody().get("url");
+            }
+            throw new RuntimeException("Signed URL missing in response body");
+        } catch (Exception e) {
+            log.error("Failed to retrieve signed URL from Python service for jobId: {}", jobId, e);
+            throw new RuntimeException("Eroare la generarea link-ului de previzualizare.");
+        }
+    }
 }

@@ -53,6 +53,7 @@ export const SourcesPanel = ({
   sources = [],
   documents = [],
   focusedSourceId,
+  openDocumentPanel,
 }) => {
   const materials = documents;
 
@@ -76,6 +77,8 @@ export const SourcesPanel = ({
   let cleanContent = "";
   let finalSourceName = "Sursă Necunoscută";
   let pageNum = null;
+  let isClickable = false;
+  let matchedMaterial = null;
 
   if (sourceToRender) {
     const textContent = sourceToRender.text_extras || sourceToRender.text || "";
@@ -88,14 +91,21 @@ export const SourcesPanel = ({
     pageNum = pageNumMatch ? pageNumMatch[1] : null;
 
     const extractedJobId = sourceFile.replace(/\.pdf$/i, "").trim();
-    const matchedMaterial = materials?.find(
+    matchedMaterial = materials?.find(
       (m) =>
         String(m.id) === extractedJobId ||
         String(m.backendId) === extractedJobId
     );
 
-    if (matchedMaterial && matchedMaterial.name) {
+    const isGlobalSummary = sourceFile.toLowerCase() === "rezumat global" || 
+                            sourceToRender.header === "Viziune de Ansamblu";
+
+    if (isGlobalSummary) {
+      finalSourceName = "Rezumat";
+      isClickable = false;
+    } else if (matchedMaterial && matchedMaterial.name) {
       finalSourceName = matchedMaterial.name;
+      isClickable = true;
     } else {
       finalSourceName = sourceFile.replace(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]?/i,
@@ -104,6 +114,7 @@ export const SourcesPanel = ({
       if (!finalSourceName || finalSourceName.toLowerCase() === ".pdf") {
         finalSourceName = "Document Curs";
       }
+      isClickable = false;
     }
   }
 
@@ -125,13 +136,24 @@ export const SourcesPanel = ({
                   <div className="w-5 h-5 shrink-0 rounded-full bg-primary-600 text-white flex items-center justify-center text-[11px] font-bold shadow-sm">
                     {sourceToRender.displayIndex}
                   </div>
-                  <span
-                    className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate"
-                    title={finalSourceName}
-                  >
-                    <FileText className="w-3.5 h-3.5 inline mr-1 text-primary-500" />{" "}
-                    {finalSourceName}
-                  </span>
+                  {isClickable ? (
+                    <button
+                      onClick={() => openDocumentPanel && openDocumentPanel(matchedMaterial)}
+                      className="text-xs font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:underline text-left truncate flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                      title={`Deschide ${finalSourceName}`}
+                    >
+                      <FileText className="w-3.5 h-3.5 shrink-0 text-primary-500" />
+                      <span>{finalSourceName}</span>
+                    </button>
+                  ) : (
+                    <span
+                      className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1"
+                      title={finalSourceName}
+                    >
+                      <FileText className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                      <span>{finalSourceName}</span>
+                    </span>
+                  )}
                 </div>
                 {pageNum != null && (
                   <span className="text-[11px] font-bold shrink-0 text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700">

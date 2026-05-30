@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
-import { Sparkles, ArrowUp, Loader2, X } from "lucide-react";
+import { Sparkles, ArrowUp, Loader2, X, FileText } from "lucide-react";
 import { Badge } from "../ui.jsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,6 +31,9 @@ function preprocessMarkdown(text) {
   // Eliminăm descrierile vizuale (să nu fie afișate nici în chat-ul text, ele existând doar pentru contextul AI-ului)
   processedText = processedText.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
   processedText = processedText.replace(/<ai_vision_description>[\s\S]*?<\/ai_vision_description>/gi, "");
+
+  // Convertim tagurile HTML de imagine în format Markdown pentru a fi randate controlat de ReactMarkdown
+  processedText = processedText.replace(/<img[^>]+src=["']([^"']+)["'][^>]*\/?>/gi, "![Diagramă Curs]($1)");
 
   processedText = processedText.replace(
     /(^|[ \n(])\*([^*\n]+)\*(?=[ \n).,:;!?]|$)/g,
@@ -82,6 +85,8 @@ export const ChatArea = ({
   openSources,
   courseId,
   isLoadingHistory,
+  openDocumentPanel,
+  documents,
 }) => {
   const messagesEndRef = useRef(null);
   const { activeJobs, removeJob } = useIngestion();
@@ -263,6 +268,43 @@ export const ChatArea = ({
                                   >
                                     {children}
                                   </a>
+                                );
+                              },
+                              img: ({ src, alt }) => {
+                                const match = src?.match(/\/graphrag_ingestion\/([a-f0-9\-]+)\/diagrams\//i);
+                                const jobId = match ? match[1] : null;
+                                const matchedDoc = documents?.find(doc => doc.jobId === jobId);
+
+                                return (
+                                  <div 
+                                    onClick={() => {
+                                      if (matchedDoc && openDocumentPanel) {
+                                        openDocumentPanel(matchedDoc);
+                                      }
+                                    }}
+                                    className="my-3 max-w-sm rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm hover:shadow-md hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-all duration-200 group flex flex-col gap-2"
+                                  >
+                                    <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80">
+                                      <img 
+                                        src={src} 
+                                        alt={alt || "Diagramă Curs"} 
+                                        className="max-h-40 max-w-full object-contain group-hover:scale-[1.02] transition-transform duration-200"
+                                      />
+                                      {matchedDoc && (
+                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1">
+                                          <FileText className="w-3.5 h-3.5 text-primary-400" /> Vezi Sursa
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="px-1 py-0.5 flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
+                                      <span className="font-semibold truncate max-w-[200px]" title={matchedDoc?.name || "Diagramă"}>
+                                        {matchedDoc?.name || "Diagramă extrasă"}
+                                      </span>
+                                      <span className="shrink-0 text-primary-600 dark:text-primary-400 font-bold group-hover:underline">
+                                        Click pentru detalii
+                                      </span>
+                                    </div>
+                                  </div>
                                 );
                               },
                             }}

@@ -71,5 +71,14 @@ public class DocumentServiceImpl implements DocumentService {
         }
     }
 
+    @Override
+    public String getPreviewUrl(String documentId, String userEmail) {
+        Document document = getById(documentId);
 
+        if (!document.getCourse().getOwner().getEmail().equals(userEmail)) {
+            throw new RuntimeException("Acces interzis. Nu aveți permisiunea de a vizualiza acest document.");
+        }
+
+        return pythonService.getSignedUrl(document.getJobId());
+    }
 }

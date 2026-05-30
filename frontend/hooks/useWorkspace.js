@@ -175,7 +175,7 @@ export function useWorkspace({
   }, [course, persist, workspaceState]);
 
   const openDocumentPanel = useCallback((doc) => {
-    if (rightPanelState === 'document' && activeDocument?.url === doc.url) {
+    if (rightPanelState === 'document' && activeDocument?.id === doc.id) {
       setRightPanelState('studio'); 
       setActiveDocument(null);
       persist({ rightPanelState: 'studio', tab: mainContent, courseBackendId: String(course?.backendId ?? workspaceState?.courseBackendId ?? '') });

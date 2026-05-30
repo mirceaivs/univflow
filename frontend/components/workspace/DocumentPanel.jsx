@@ -1,10 +1,48 @@
-import React, { useState } from "react";
-import { FileText, Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { FileText, Loader2, AlertCircle } from "lucide-react";
+import { apiClient } from "../../services/apiClient.js";
 
 export const DocumentPanel = ({
   activeDocument,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!activeDocument) {
+      setPreviewUrl("");
+      setError(null);
+      return;
+    }
+
+    let active = true;
+    setIsLoading(true);
+    setError(null);
+
+    apiClient.get(`/documents/${activeDocument.id}/preview`)
+      .then(response => {
+        if (active) {
+          if (response.data && response.data.url) {
+            setPreviewUrl(response.data.url);
+          } else {
+            setError("Răspunsul serverului nu conține URL-ul de previzualizare.");
+            setIsLoading(false);
+          }
+        }
+      })
+      .catch(err => {
+        if (active) {
+          console.error("Failed to load document preview URL:", err);
+          setError("Nu s-a putut obține link-ul securizat pentru previzualizarea documentului.");
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeDocument]);
 
   if (!activeDocument) {
     return (
@@ -34,12 +72,25 @@ export const DocumentPanel = ({
           </p>
         </div>
       )}
-      <iframe
-        src={`${activeDocument.url}?t=${new Date().getTime()}#toolbar=0`}
-        className="w-full h-full border-0"
-        title={activeDocument.name}
-        onLoad={() => setIsLoading(false)}
-      />
+
+      {error ? (
+        <div className="flex flex-col items-center justify-center text-center p-6 h-full space-y-3 bg-white dark:bg-slate-900">
+          <AlertCircle className="w-10 h-10 text-red-500" />
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            {error}
+          </p>
+        </div>
+      ) : (
+        previewUrl && (
+          <iframe
+            src={`${previewUrl}#toolbar=0`}
+            className="w-full h-full border-0"
+            title={activeDocument.name}
+            onLoad={() => setIsLoading(false)}
+          />
+        )
+      )}
     </div>
   );
 };
+

@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/documents")
 public class DocumentController {
@@ -16,6 +18,12 @@ public class DocumentController {
         this.documentService = documentService;
     }
 
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<Map<String, String>> getPreviewUrl(@PathVariable String id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String signedUrl = documentService.getPreviewUrl(id, email);
+        return ResponseEntity.ok(Map.of("url", signedUrl));
+    }
 
     @DeleteMapping("/{id}")
     @Idempotent(seconds = 10)

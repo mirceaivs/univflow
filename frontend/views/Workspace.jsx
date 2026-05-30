@@ -220,6 +220,8 @@ export const WorkspaceView = ({
                 openSources={workspace.openSources}
                 courseId={backendCourseId}
                 isLoadingHistory={workspace.loadingCourses || chat.isLoadingHistory}
+                openDocumentPanel={workspace.openDocumentPanel}
+                documents={courseDocuments}
               />
             )}
           </div>
@@ -228,7 +230,7 @@ export const WorkspaceView = ({
         <div className="flex h-full shrink-0 z-10">
           {}
           <div
-            className={`transition-all duration-0 ease-linear overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
+            className={`transition-all duration-300 ease-in-out overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
               rightPanelState === "sources"
                 ? "border-l opacity-100"
                 : "border-l-0 opacity-0"
@@ -264,6 +266,7 @@ export const WorkspaceView = ({
                   sources={activeSources}
                   documents={courseDocuments}
                   focusedSourceId={focusedSourceId}
+                  openDocumentPanel={workspace.openDocumentPanel}
                 />
               </div>
             </div>
@@ -271,7 +274,7 @@ export const WorkspaceView = ({
 
           {}
           <div
-            className={`transition-all duration-0 ease-linear overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
+            className={`transition-all duration-300 ease-in-out overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
               rightPanelState === "studio"
                 ? "border-l opacity-100"
                 : "border-l-0 opacity-0"
@@ -316,7 +319,7 @@ export const WorkspaceView = ({
 
           {}
           <div
-            className={`transition-all duration-0 ease-linear overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
+            className={`transition-all duration-300 ease-in-out overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${
               rightPanelState === "document"
                 ? "border-l opacity-100"
                 : "border-l-0 opacity-0"

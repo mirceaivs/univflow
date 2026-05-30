@@ -19,4 +19,5 @@ public interface PythonIntegrationService {
     public Mono<String> getPaginatedChatHistory(String courseId, String userId, int page, int size);
     String generateQuiz(String courseId, String topic, String difficulty, int numQuestions, int optionsPerQuestion, boolean allowMultipleCorrect, String userEmail);
     Map<String, Object> getIngestionJobStatus(String jobId);
+    String getSignedUrl(String jobId);
 }

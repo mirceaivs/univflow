@@ -293,3 +293,46 @@ async def delete_document_data(
     except Exception as e:
         print(f"Purge error for document {job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Document cleanup failed: {str(e)}")
+        
+@app.get("/api/documents/{job_id}/signed-url")
+def get_document_signed_url(
+    job_id: str,
+    bucket = Depends(get_gcs_bucket),
+    _: None = Depends(verify_internal_access)
+):
+    try:
+        with psycopg.connect(DB_DSN) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT file_path FROM rag_system.ingestion_jobs WHERE job_id = %s
+                """, (job_id,))
+                row = cur.fetchone()
+
+        if not row or not row[0]:
+            raise HTTPException(status_code=404, detail="Document/Job not found")
+
+        gcs_uri = row[0]
+        if not gcs_uri.startswith("gs://"):
+            raise HTTPException(status_code=400, detail="Invalid GCS URI format in database")
+
+        uri_without_prefix = gcs_uri[5:]
+        parts = uri_without_prefix.split("/", 1)
+        if len(parts) < 2:
+            raise HTTPException(status_code=500, detail="Invalid storage path in database")
+
+        blob_path = parts[1]
+        blob = bucket.blob(blob_path)
+
+        import datetime
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=datetime.timedelta(minutes=15),
+            method="GET"
+        )
+        return {"url": signed_url}
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Error generating signed URL for job_id {job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate signed URL: {str(e)}")

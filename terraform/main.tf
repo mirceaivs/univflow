@@ -61,12 +61,6 @@ resource "google_storage_bucket_iam_member" "public_diagrams_viewer" {
   member = "allUsers"
 }
 
-resource "google_storage_bucket_iam_member" "ingestion_bucket_viewer" {
-  bucket = google_storage_bucket.ingestion_bucket.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
-}
-
 # --- Service Account GCS Access ---
 # 1. Native Service Account
 resource "google_storage_bucket_iam_member" "ingestion_bucket_native_sa_admin" {
@@ -92,4 +86,10 @@ resource "google_storage_bucket_iam_member" "public_diagrams_external_sa_admin" 
   bucket = google_storage_bucket.public_diagrams_bucket.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:test-sa-platform@wave27-mivascu-447311.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "compute_sa_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
 }

@@ -1,12 +1,52 @@
 import React, { useMemo } from 'react';
-import { FileText, Plus, MoreVertical, LayoutGrid, List, Sparkles, ExternalLink, X, ArrowRight } from 'lucide-react';
+import { FileText, Plus, MoreVertical, LayoutGrid, List, Sparkles, ExternalLink, X, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { Card, Button, Badge } from '../components/ui.jsx';
 import { useDocuments } from '../hooks/useDocuments.js';
 import { useCourses } from '../hooks/useCourses.js';
+import { apiClient } from '../services/apiClient.js';
 
 export const CourseMaterialsView = ({ setView, courseId, course }) => {
   const { courses } = useCourses();
   const [previewDocument, setPreviewDocument] = React.useState(null);
+  const [previewUrl, setPreviewUrl] = React.useState("");
+  const [isPreviewLoading, setIsPreviewLoading] = React.useState(false);
+  const [previewError, setPreviewError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!previewDocument) {
+      setPreviewUrl("");
+      setIsPreviewLoading(false);
+      setPreviewError(null);
+      return;
+    }
+
+    let active = true;
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+
+    apiClient.get(`/documents/${previewDocument.id}/preview`)
+      .then(response => {
+        if (active) {
+          if (response.data && response.data.url) {
+            setPreviewUrl(response.data.url);
+          } else {
+            setPreviewError("URL-ul de previzualizare lipsește.");
+            setIsPreviewLoading(false);
+          }
+        }
+      })
+      .catch(err => {
+        if (active) {
+          console.error("Error loading preview URL:", err);
+          setPreviewError("Nu s-a putut genera link-ul securizat de previzualizare.");
+          setIsPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [previewDocument]);
 
   const selectedCourse = useMemo(() => {
     if (course && typeof course === 'object') return course;
@@ -147,8 +187,8 @@ export const CourseMaterialsView = ({ setView, courseId, course }) => {
       </div>
 
       {previewDocument && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setPreviewDocument(null)}>
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm modal-overlay-anim" onClick={() => setPreviewDocument(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden modal-content-anim" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
               <h3 className="font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary-500" />
@@ -161,12 +201,32 @@ export const CourseMaterialsView = ({ setView, courseId, course }) => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 w-full bg-slate-100 dark:bg-slate-950">
-              <iframe
-                src={`${previewDocument.url}#toolbar=0`}
-                className="w-full h-full border-0"
-                title={previewDocument.name}
-              />
+            <div className="flex-1 w-full bg-slate-100 dark:bg-slate-950 relative">
+              {isPreviewLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 z-10 backdrop-blur-sm">
+                  <Loader2 className="w-8 h-8 text-primary-500 animate-spin mb-4" />
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Se încarcă previzualizarea securizată...
+                  </p>
+                </div>
+              )}
+              {previewError ? (
+                <div className="flex flex-col items-center justify-center text-center p-6 h-full space-y-3 bg-white dark:bg-slate-900">
+                  <AlertCircle className="w-10 h-10 text-red-500" />
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {previewError}
+                  </p>
+                </div>
+              ) : (
+                previewUrl && (
+                  <iframe
+                    src={`${previewUrl}#toolbar=0`}
+                    className="w-full h-full border-0"
+                    title={previewDocument.name}
+                    onLoad={() => setIsPreviewLoading(false)}
+                  />
+                )
+              )}
             </div>
           </div>
         </div>

@@ -29,6 +29,7 @@ const toUiMaterial = (dto) => {
   return {
     id: dto?.id,
     backendId: dto?.id,
+    jobId: dto?.jobId,
     name,
     type: getType(name, mime),
     size: dto?.sizeFormatted ?? formatSize(sizeBytes),
