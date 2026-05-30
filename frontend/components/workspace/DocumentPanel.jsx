@@ -35,7 +35,7 @@ export const DocumentPanel = ({
         </div>
       )}
       <iframe
-        src={`${activeDocument.url}#toolbar=0`}
+        src={`${activeDocument.url}?t=${new Date().getTime()}#toolbar=0`}
         className="w-full h-full border-0"
         title={activeDocument.name}
         onLoad={() => setIsLoading(false)}

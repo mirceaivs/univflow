@@ -303,7 +303,7 @@ export const MaterialsArea = ({
             </div>
             <div className="flex-1 w-full bg-slate-100 dark:bg-slate-950">
               <iframe
-                src={`${previewDocument.url}#toolbar=0`}
+                src={`${previewDocument.url}?t=${new Date().getTime()}#toolbar=0`}
                 className="w-full h-full border-0"
                 title={previewDocument.name}
               />

@@ -137,7 +137,7 @@ async def ingest_documents(
             
             blob = bucket.blob(f"ingestion_artifacts/{course_id}/{job_id}_{file.filename}")
             
-            blob.upload_from_file(file.file)
+            blob.upload_from_file(file.file, content_type=file.content_type)
             try:
                 blob.make_public()
             except Exception as e:

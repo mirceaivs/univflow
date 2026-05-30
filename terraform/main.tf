@@ -61,6 +61,12 @@ resource "google_storage_bucket_iam_member" "public_diagrams_viewer" {
   member = "allUsers"
 }
 
+resource "google_storage_bucket_iam_member" "ingestion_bucket_viewer" {
+  bucket = google_storage_bucket.ingestion_bucket.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
 # --- Service Account GCS Access ---
 # 1. Native Service Account
 resource "google_storage_bucket_iam_member" "ingestion_bucket_native_sa_admin" {
