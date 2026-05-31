@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from psycopg_pool import AsyncConnectionPool
 
-
 from config import POSTGRES_DSN, PROJECT_ID, LOCATION, LLM_MODEL_NAME
 from api import router
 

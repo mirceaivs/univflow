@@ -3,7 +3,6 @@ import { apiClient } from '../services/apiClient.js';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
-
 function safeParseJson(input) {
   if (input == null) return null;
   if (typeof input !== 'string') return input;
@@ -141,7 +140,6 @@ function toFrontendQuestion(q) {
     feedback,
   };
 }
-
 
 export function useQuiz({ quiz, questions = null, quizResetKey = 0, courseId, quizId } = {}) {
   const [currentIndex, setCurrentIndex] = useState(0);

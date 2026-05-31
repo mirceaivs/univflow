@@ -3,7 +3,6 @@ import { useAuth as useAuthInternal } from '../../hooks/useAuth.js';
 
 const AuthContext = createContext(null);
 
-
 export const AuthProvider = ({ children, onLogin }) => {
   const auth = useAuthInternal({ onLogin });
 

@@ -119,9 +119,8 @@ async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "Verte
                 if row[2] < 0.35 and len(row[0].strip()) > 50
             ]
 
-
-_global_summary_cache = {}  # course_id: (timestamp, list_of_docs)
-CACHE_TTL = 300  # 5 minute expirare
+_global_summary_cache = {}
+CACHE_TTL = 300
 
 async def get_global_summary(pool: AsyncConnectionPool, course_id: str) -> List[Document]:
     current_time = time.time()
@@ -187,16 +186,13 @@ async def sse_interaction_generator(
     combined_id = f"{user_id}_{course_id}"
     session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, combined_id)) 
 
-    # 1. Preia istoricul (sincron, rapid) pentru query rewriting
     chat_context = await get_recent_history(pool, session_id)
 
-    # 2. Paralelizare: rescrie întrebarea ȘI extrage keywords SIMULTAN (economie ~1s)
     search_query, graph_keywords = await asyncio.gather(
         rewrite_question_with_context(llm, question, chat_context),
         extract_graph_keywords(llm, question)
     )
 
-    # 3. Retrieval paralel cu query-ul rescris + keywords pre-extrase
     task_vector = asyncio.create_task(get_vector_context(pool, embeddings_model, search_query, course_id))
     task_graph = asyncio.create_task(get_graph_context(pool, search_query, course_id, keywords=graph_keywords))
     task_summary = asyncio.create_task(get_global_summary(pool, course_id))
@@ -300,10 +296,8 @@ def clean_text_noise(text: str) -> str:
     if not text: 
         return ""
         
-    # Eliminăm descrierile de imagini AI din istoric
     text = re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', text, flags=re.DOTALL | re.IGNORECASE)
     
-    # Adăugăm < și > pentru a păstra tag-urile HTML ca <img> intacte
     text = re.sub(r'[^\w\s\.,;:\?!\[\]\(\)\-\+\*\/\\%="\'\|#_`<>]', '', text)
     
     text = re.sub(r'[ \t]{2,}', ' ', text)

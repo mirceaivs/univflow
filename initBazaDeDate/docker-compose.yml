@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile.postgres
     container_name: unified_ai_postgres
     restart: always
-    # Alocăm memorie partajată extinsă pentru procesările complexe de vectori și grafuri
+    
     shm_size: '512mb'
     environment:
       POSTGRES_USER: enterprise_admin

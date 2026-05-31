@@ -1,6 +1,5 @@
-# --- Secret Manager Resources ---
 
-# 1. DB Password
+
 resource "google_secret_manager_secret" "db_password" {
   secret_id = "db_password"
   replication {
@@ -14,7 +13,6 @@ resource "google_secret_manager_secret_version" "db_password_version" {
   secret_data = var.db_password
 }
 
-# 2. Internal API Key
 resource "google_secret_manager_secret" "internal_api_key" {
   secret_id = "internal_api_key"
   replication {
@@ -28,7 +26,6 @@ resource "google_secret_manager_secret_version" "internal_api_key_version" {
   secret_data = var.internal_api_key
 }
 
-# 3. Service Account Key
 resource "google_secret_manager_secret" "service_account_key" {
   secret_id = "service_account_key"
   replication {
@@ -42,8 +39,6 @@ resource "google_secret_manager_secret_version" "service_account_key_version" {
   secret_data = file("D:\\Facultate\\Master\\Disertatie\\secret\\serviceaccount.txt")
 }
 
-# --- IAM Permisiuni pentru Secrete ---
-# Acordă rolul roles/secretmanager.secretAccessor contului de serviciu default de Compute Engine
 resource "google_secret_manager_secret_iam_member" "compute_sa_db_password" {
   secret_id = google_secret_manager_secret.db_password.id
   role      = "roles/secretmanager.secretAccessor"
@@ -62,7 +57,6 @@ resource "google_secret_manager_secret_iam_member" "compute_sa_service_account_k
   member    = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
 }
 
-# 4. Mail Password Secret
 resource "google_secret_manager_secret" "mail_password" {
   secret_id = "mail_password"
   replication {

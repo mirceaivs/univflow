@@ -5,18 +5,18 @@ import { Card, Button } from './ui.jsx';
 export const AiRecommendation = ({ courses, loading, onGenerateTest, onOpenCourse }) => {
   if (loading || !courses || courses.length === 0) return null;
 
-  // Calculăm numărul total de materiale din toate cursurile
+  
   const totalDocs = courses.reduce((sum, c) => sum + (c.docs || 0), 0);
 
-  // Cursurile la care utilizatorul a finalizat teste (care au un scor > 0)
+  
   const testedCourses = courses.filter(c => c.score > 0);
 
-  // Cursul cel mai slab din punct de vedere al scorului
+  
   const weakestCourse = testedCourses.length > 0
     ? testedCourses.reduce((min, c) => c.score < min.score ? c : min)
     : null;
 
-  // Ultimul curs accesat
+  
   const lastCourse = courses
     .filter(c => c.lastAccessed)
     .sort((a, b) => new Date(b.lastAccessed) - new Date(a.lastAccessed))[0] || courses[0];
@@ -24,7 +24,7 @@ export const AiRecommendation = ({ courses, loading, onGenerateTest, onOpenCours
   const hasWeakCourse = weakestCourse && weakestCourse.score < 50; 
   const displayScore = weakestCourse ? (weakestCourse.score / 10).toFixed(1) : '0';
 
-  // 1. Cazul în care utilizatorul nu are niciun material încărcat
+  
   if (totalDocs === 0) {
     return (
       <Card className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-900/20 border-indigo-100 dark:border-indigo-800/50 shadow-md shadow-indigo-100/50 dark:shadow-none relative overflow-hidden">
@@ -43,7 +43,7 @@ export const AiRecommendation = ({ courses, loading, onGenerateTest, onOpenCours
     );
   }
 
-  // 2. Cazul în care există materiale, dar utilizatorul nu a finalizat niciun test
+  
   if (testedCourses.length === 0) {
     return (
       <Card className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-900/20 border-indigo-100 dark:border-indigo-800/50 shadow-md shadow-indigo-100/50 dark:shadow-none relative overflow-hidden">
@@ -68,7 +68,7 @@ export const AiRecommendation = ({ courses, loading, onGenerateTest, onOpenCours
     );
   }
 
-  // 3. Cazul în care utilizatorul are teste finalizate
+  
   return (
     <Card className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-900/20 border-indigo-100 dark:border-indigo-800/50 shadow-md shadow-indigo-100/50 dark:shadow-none relative overflow-hidden">
       <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 dark:bg-blue-400/10 rounded-full blur-2xl"></div>

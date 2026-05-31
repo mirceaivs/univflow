@@ -2,18 +2,17 @@ locals {
   dummy_image = "us-docker.pkg.dev/cloudrun/container/hello"
   db_host     = google_compute_address.db_internal_ip.address
 
-  # Deterministic URLs
+  
   backend_url = "https://java-backend-service-${var.project_number}.${var.region}.run.app"
   ingest_url  = "https://ingest-service-${var.project_number}.${var.region}.run.app"
   ask_url     = "https://ask-service-${var.project_number}.${var.region}.run.app"
 }
 
-# --- 1. Frontend Service ---
 resource "google_cloud_run_v2_service" "frontend" {
   provider    = google-beta
   name        = "frontend-service"
   location    = var.region
-  ingress     = "INGRESS_TRAFFIC_ALL" # Frontend trebuie sa fie accesibil din afara, dar va fi protejat de IAP
+  ingress     = "INGRESS_TRAFFIC_ALL" 
   iap_enabled = true
 
   template {
@@ -35,7 +34,6 @@ resource "google_cloud_run_v2_service" "frontend" {
   depends_on = [google_project_service.apis]
 }
 
-# --- 2. Java Backend Service ---
 resource "google_cloud_run_v2_service" "java_backend" {
   name     = "java-backend-service"
   location = var.region
@@ -118,7 +116,6 @@ resource "google_cloud_run_v2_service" "java_backend" {
   ]
 }
 
-# --- 3. Ingest API Service ---
 resource "google_cloud_run_v2_service" "ingest_service" {
   name     = "ingest-service"
   location = var.region
@@ -218,7 +215,6 @@ resource "google_cloud_run_v2_service" "ingest_service" {
   ]
 }
 
-# --- 4. Ask API Service ---
 resource "google_cloud_run_v2_service" "ask_service" {
   name     = "ask-service"
   location = var.region
@@ -318,7 +314,6 @@ resource "google_cloud_run_v2_service" "ask_service" {
   ]
 }
 
-# --- 5. Worker Cloud Run Job ---
 resource "google_cloud_run_v2_job" "ingest_worker" {
   name     = "ingest-worker-job"
   location = var.region
@@ -412,7 +407,6 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
   ]
 }
 
-# --- 6. IAM Permissions for External Service Account to trigger Cloud Run Job ---
 resource "google_project_iam_member" "external_sa_run_developer" {
   project = var.project_id
   role    = "roles/run.developer"

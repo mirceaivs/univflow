@@ -1,7 +1,6 @@
-# Folosim imaginea oficială de PostgreSQL 16
+
 FROM postgres:16.4
 
-# Instalăm extensiile necesare direct din pachetele oficiale
 RUN set -xe; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -9,7 +8,6 @@ RUN set -xe; \
     postgresql-16-age; \
     rm -rf /var/lib/apt/lists/*
 
-# Configuram serverul sa incarce automat Apache AGE in shared memory la pornire
 RUN echo "shared_preload_libraries = 'age'" >> /usr/share/postgresql/postgresql.conf.sample
 
 EXPOSE 5432

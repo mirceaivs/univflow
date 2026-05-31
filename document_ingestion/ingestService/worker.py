@@ -108,9 +108,7 @@ def is_retryable_exception(e):
     reraise=True
 )
 def fetch_ai_data_with_retry(chunk_obj):
-    # Curăță textul de artefacte vizuale/HTML pentru embedding-uri mai pure
     clean_text = MultimodalSemanticPipeline._clean_for_embedding(chunk_obj.page_content)
-    # Contextual retrieval: prepune header + source file la textul de embedding
     header = chunk_obj.metadata.get("header", "")
     source = chunk_obj.metadata.get("source_file", "")
     context_prefix = f"[{source}] {header}\n" if header else ""
@@ -129,13 +127,10 @@ def process_single_execution():
         print("EROARE: BUCKET_NAME sau FILE_PATH lipsesc din variabilele de mediu.")
         sys.exit(1)
 
-    # 1. Filtrare Arhitecturală: Ieșire grațioasă pentru fișiere neprocesabile (diagrame, etc.)
     if not file_path.lower().endswith(".pdf"):
         print(f"[{file_path}] Nu este un PDF procesabil. Se închide worker-ul grațios (exit 0).")
         sys.exit(0)
 
-    # 3. Parametrizare: Parsare job_id și course_id din calea GCS
-    # Format așteptat: ingestion_artifacts/{course_id}/{job_id}_{filename}
     parts = file_path.split("/")
     if len(parts) >= 3 and parts[0] == "ingestion_artifacts":
         course_id = parts[1]
@@ -145,16 +140,13 @@ def process_single_execution():
         else:
             job_id = "unknown_job_" + str(int(time.time()))
     else:
-        # Fallback dacă fișierul a fost încărcat direct într-un folder atipic
         course_id = "default_course"
         job_id = "job_" + str(int(time.time()))
 
     gcs_uri = f"gs://{bucket_name}/{file_path}"
     print(f"[{job_id}] Acquired File: {file_path}. Processing for course {course_id}...")
     
-    # 2 & 4. Execuție unică și Terminație
     try:
-        # Marcăm ca PROCESSING în BD
         with psycopg.connect(DB_DSN) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -178,7 +170,6 @@ def process_single_execution():
         blob.download_to_filename(temp_pdf_path)
 
         print(f"[{job_id}] Începe chunking-ul multimodal...")
-        # GCS_BUCKET_NAME este utilizat în pipeline pentru adăugarea diagramelor/imaginilor
         app_bucket_name = os.getenv("GCS_BUCKET_NAME", bucket_name)
         
         semantic_chunks = pipeline.process_document(
@@ -204,7 +195,6 @@ def process_single_execution():
 
         print(f"[{job_id}] Date AI preluate. Începe inserarea în PostgreSQL...")
 
-        # 6. Atomicitate: Bloc try-except cu rollback explicit
         with psycopg.connect(DB_DSN) as conn:
             try:
                 conn.execute("LOAD 'age';")
@@ -215,18 +205,15 @@ def process_single_execution():
                 
                 with conn.cursor() as cur:
                     for idx, (chunk, embedding_vector, graph_data) in enumerate(ai_results):
-                        # Inserare text și embed
                         cur.execute("""
                             INSERT INTO rag_system.document_chunks (job_id, content, embedding, metadata)
                             VALUES (%s, %s, %s, %s)
                         """, (job_id, chunk.page_content, str(embedding_vector), json.dumps(chunk.metadata)))
 
-                        # Colectare noduri unice
                         if graph_data and hasattr(graph_data, 'nodes') and graph_data.nodes:
                             for node in graph_data.nodes:
                                 unique_nodes[node.id] = node.label
 
-                        # Colectare muchii unice
                         if graph_data and hasattr(graph_data, 'edges') and graph_data.edges:
                             for edge in graph_data.edges:
                                 unique_edges.add((edge.source, edge.target, edge.relation))
@@ -237,7 +224,6 @@ def process_single_execution():
                             SET progress = %s WHERE job_id = %s
                         """, (progress, job_id))
 
-                    # Inserare bulk noduri (deduplicate)
                     for n_id, n_label in unique_nodes.items():
                         cur.execute("""
                             SELECT * FROM cypher('document_knowledge_graph', $$
@@ -251,7 +237,6 @@ def process_single_execution():
                             "course": course_id
                         })})
 
-                    # Inserare bulk muchii (deduplicate)
                     for s, t, r in unique_edges:
                         cur.execute("""
                             SELECT * FROM cypher('document_knowledge_graph', $$
@@ -276,7 +261,6 @@ def process_single_execution():
                 conn.rollback()
                 raise Exception(f"Eroare la inserarea în DB (rollback executat explicit): {db_err}")
 
-        # Finalizarea statusului job-ului
         with psycopg.connect(DB_DSN) as conn:
             conn.execute("""
                 UPDATE rag_system.ingestion_jobs
@@ -298,7 +282,6 @@ def process_single_execution():
         except Exception as db_update_err:
             print(f"Nu s-a putut actualiza statusul de eșec în DB: {db_update_err}")
         finally:
-            # 4. Terminație cu eroare
             sys.exit(1)
             
     finally:
@@ -310,11 +293,10 @@ def process_single_execution():
 
         try:
             if 'blob' in locals() and blob and blob.exists():
-                pass # Nu mai stergem fisierul pentru a putea fi accesat in frontend
+                pass
         except Exception:
             pass
             
-    # 4. Terminație cu succes
     sys.exit(0)
 
 if __name__ == "__main__":

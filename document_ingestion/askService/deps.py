@@ -21,7 +21,6 @@ def get_credentials():
 @lru_cache(maxsize=1)
 def get_embeddings_model():
     from langchain_google_vertexai import VertexAIEmbeddings
-    # VertexAIEmbeddings does not support "global" location; default to europe-west3
     emb_location = LOCATION if LOCATION and LOCATION != "global" else "europe-west3"
     return VertexAIEmbeddings(
         model_name="text-embedding-005",

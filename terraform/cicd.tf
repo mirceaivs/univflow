@@ -1,5 +1,5 @@
-# --- Permisiuni CI/CD (Cloud Build) ---
-# Adăugăm rolurile necesare contului de serviciu default folosit de Cloud Build
+
+
 resource "google_project_iam_member" "cloudbuild_run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
@@ -18,10 +18,6 @@ resource "google_project_iam_member" "cloudbuild_artifact_admin" {
   member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
 }
 
-# Observație: Pentru ca aceste triggere să meargă din prima, trebuie să conectezi 
-# contul tău de GitHub cu Cloud Build din Google Cloud Console (Cloud Build -> Triggers -> Connect Repository).
-
-# 1. Frontend Trigger
 resource "google_cloudbuild_trigger" "frontend_trigger" {
   name        = "deploy-frontend"
   description = "Build and deploy frontend"
@@ -51,7 +47,7 @@ resource "google_cloudbuild_trigger" "frontend_trigger" {
     step {
       name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
-      # Argumentul critic "--no-allow-unauthenticated" protejează perimetrul IAP
+      
       args = ["run", "deploy", "frontend-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/frontend:latest", "--region", var.region, "--no-allow-unauthenticated"]
     }
     options {
@@ -61,7 +57,6 @@ resource "google_cloudbuild_trigger" "frontend_trigger" {
   depends_on = [google_project_service.apis]
 }
 
-# 2. Java Backend Trigger
 resource "google_cloudbuild_trigger" "java_backend_trigger" {
   name     = "deploy-java-backend"
   location = "global"
@@ -101,7 +96,6 @@ resource "google_cloudbuild_trigger" "java_backend_trigger" {
   depends_on = [google_project_service.apis]
 }
 
-# 3. Ingest Service Trigger
 resource "google_cloudbuild_trigger" "ingest_service_trigger" {
   name     = "deploy-ingest-service"
   location = "global"
@@ -139,7 +133,6 @@ resource "google_cloudbuild_trigger" "ingest_service_trigger" {
   depends_on = [google_project_service.apis]
 }
 
-# 4. Ask Service Trigger
 resource "google_cloudbuild_trigger" "ask_service_trigger" {
   name     = "deploy-ask-service"
   location = "global"
@@ -177,7 +170,6 @@ resource "google_cloudbuild_trigger" "ask_service_trigger" {
   depends_on = [google_project_service.apis]
 }
 
-# 5. Worker Job Trigger
 resource "google_cloudbuild_trigger" "worker_job_trigger" {
   name     = "deploy-worker-job"
   location = "global"

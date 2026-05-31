@@ -68,15 +68,10 @@ class MultimodalSemanticPipeline:
     @staticmethod
     def _clean_for_embedding(text: str) -> str:
         """Curăță textul de artefacte vizuale/HTML pentru a produce embedding-uri mai pure."""
-        # Elimină blocurile de descriere AI
         text = re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', text, flags=re.DOTALL)
-        # Elimină tag-urile HTML de imagine
         text = re.sub(r'<img[^>]*/?>', '', text)
-        # Elimină liniile cu "[Imagine de referință...]"
         text = re.sub(r'\*\*\[Imagine de referință[^\]]*\]\*\*', '', text)
-        # Elimină markdown bold/italic excesiv
         text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
-        # Colapsează spații și newline-uri
         text = re.sub(r'\n{2,}', '\n', text).strip()
         return text
 
@@ -149,9 +144,6 @@ class MultimodalSemanticPipeline:
                             img_meta['future_data'] = future
                             has_extracted_images = True
 
-                    # Dacă pymupdf4llm nu a extras imagini individuale, dar pagina conține desene vectoriale complexe
-                    # (cum ar fi diagrame ER în format vectorial: Visio/Draw.io) sau imagini pe care nu le-a extras,
-                    # determinăm regiunea activă a acestora și o decupăm (crop) în loc de a randa întreaga pagină
                     if not has_extracted_images:
                         drawings = page.get_drawings()
                         images = page.get_images()
@@ -159,24 +151,19 @@ class MultimodalSemanticPipeline:
                         if len(images) > 0 or len(drawings) > 10:
                             drawings_rect = fitz.Rect()
                             
-                            # Includem desenele vectoriale
                             for d in drawings:
                                 r = fitz.Rect(d.get("rect"))
-                                # Ignorăm elementele de fundal/border care ocupă aproape toată pagina
                                 if r.width >= page.rect.width * 0.95 and r.height >= page.rect.height * 0.95:
                                     continue
                                 drawings_rect.include_rect(r)
                             
-                            # Includem imagini raster
                             if len(images) > 0:
                                 for img in images:
                                     xref = img[0]
                                     for r in page.get_image_rects(xref):
                                         drawings_rect.include_rect(r)
                             
-                            # Dacă bounding box-ul determinat nu este gol, decupăm acea zonă
                             if not drawings_rect.is_empty:
-                                # Adăugăm un padding de 15px pentru a nu tăia din margini/texte explicative ale diagramei
                                 clip_rect = fitz.Rect(
                                     max(0, drawings_rect.x0 - 15),
                                     max(0, drawings_rect.y0 - 15),
@@ -208,24 +195,18 @@ class MultimodalSemanticPipeline:
                 comprehensive_markdown_pages = []
                 for page_data in layout_data:
                     page_text = page_data.get('text', '') 
-                    # 1. Ștergem adnotările de tip "newline ca HTML"
                     page_text = re.sub(r'<br\s*/?>', ' ', page_text)
                     
-                    # 2. Ștergem liniile de copyright evidente și drepturi rezervate
                     page_text = re.sub(r'(?i)^.*(?:copyright|©|\(c\)|&copy;).*$', '', page_text, flags=re.MULTILINE)
                     page_text = re.sub(r'(?i)^.*toate\s+drepturile\s+rezervate.*$', '', page_text, flags=re.MULTILINE)
                     
-                    # 3. Eliminăm liniile din cuprins (cu cel puțin 4 puncte consecutive)
                     page_text = re.sub(r'^.*\.{4,}.*$', '', page_text, flags=re.MULTILINE)
                     
-                    # 4. Eliminăm cuvântul "Cuprins" dacă este singur pe linie
                     page_text = re.sub(r'^\s*#*\s*\*?\*?\s*cuprins\s*\*?\*?\s*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
                     
-                    # 5. Eliminăm numerele de pagină (singure pe linie, formate de tip "5- 2" sau "pagina 12")
                     page_text = re.sub(r'^\s*\d+\s*-\s*\d+\s*$', '', page_text, flags=re.MULTILINE)
                     page_text = re.sub(r'^\s*(pag(ina|\.)?|page)?\s*\d+\s*$', '', page_text, flags=re.IGNORECASE | re.MULTILINE)
                     
-                    # Eliminam imaginile neprocesate (intentionally omitted)
                     page_text = re.sub(r'==>\s*picture.*?intentionally omitted\s*<==', '', page_text, flags=re.IGNORECASE)
                     
 
@@ -252,7 +233,6 @@ class MultimodalSemanticPipeline:
             
             full_document_text = "\n".join(comprehensive_markdown_pages)
             
-            # Corectam problemele de formatare specifice LaTeX/Math rezultate din pymupdf4llm
             full_document_text = re.sub(r'\$B\^\*Tree\$', 'B*Tree', full_document_text)
             
             full_document_text = re.sub(r'\n{3,}', '\n\n', full_document_text)
@@ -319,7 +299,6 @@ class MultimodalSemanticPipeline:
         
         
         
-        # Protejăm tabelele Markdown prin placeholders pentru a preveni fragmentarea lor de către Semantic Chunker
         lines = full_document_text.split("\n")
         processed_lines = []
         tables_list = []
@@ -353,7 +332,6 @@ class MultimodalSemanticPipeline:
             metadatas=[{"course_id": course_id, "source_file": clean_file_name}]
         )
         
-        # Restabilim tabelele originale în cadrul chunk-urilor generate
         def restore_tables(chunk_text, saved_tables):
             def replace_match(match):
                 idx = int(match.group(1))
@@ -364,10 +342,8 @@ class MultimodalSemanticPipeline:
 
         for doc in docs:
             doc.page_content = restore_tables(doc.page_content, tables_list)
-            # Curățăm eventualele linii goale excesive adăugate la restabilire
             doc.page_content = re.sub(r'\n{3,}', '\n\n', doc.page_content).strip()
             
-            # Extrage header-ul markdown cel mai relevant din chunk
             header_match = re.search(r'^#{1,4}\s+(.+)$', doc.page_content, re.MULTILINE)
             if header_match:
                 doc.metadata["header"] = header_match.group(1).strip()

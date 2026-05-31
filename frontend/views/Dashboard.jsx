@@ -62,8 +62,6 @@ export const DashboardView = ({ setView, openCourseTab }) => {
     }
   };
 
-
-
   return (
     <div className="flex-1 h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       <div className="max-w-6xl mx-auto space-y-8 p-8">

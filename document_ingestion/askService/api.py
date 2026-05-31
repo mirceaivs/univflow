@@ -88,16 +88,9 @@ async def get_paginated_history(
     
     return {"session_id": session_id, "page": page, "size": len(clean_messages), "messages": clean_messages}
 
-
-
-
-
-
-
 def is_429_error(exception: Exception) -> bool:
     err_str = str(exception)
     return "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
-
 
 @retry(
     stop=stop_after_attempt(4),
@@ -111,7 +104,6 @@ async def generate_quiz_with_retry(llm, prompt):
     
     structured_llm = llm.with_structured_output(schema=Quiz, method="json_schema")
     return await structured_llm.ainvoke(prompt)
-
 
 @router.post("/api/quiz/{course_id}/generate")
 async def generate_quiz(

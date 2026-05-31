@@ -168,7 +168,7 @@ export function useChat({ courseId } = {}) {
                   setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, citations: incomingCitations } : m));
                   setCitations(incomingCitations);
                 } else if (eventType === 'error') {
-                  // Backend sent an explicit error event during streaming
+                  
                   const errMsg = parsed.error || 'Eroare necunoscută de la server.';
                   setMessages((prev) =>
                     prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + `\n\n⚠️ ${errMsg}` } : m))

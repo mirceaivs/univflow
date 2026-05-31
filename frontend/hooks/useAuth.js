@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../services/apiClient.js';
 
-
 export const useAuth = ({ onLogin } = {}) => {
   
   const [authMode, setAuthMode] = useState('login');

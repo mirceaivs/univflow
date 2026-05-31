@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 
-
 export const useSettingsUI = ({ firstName, lastName, email, onSaveName, onRequestEmailChange, onSavePassword, onDeleteCourses, onDeleteAccount, onChangeProfilePic } = {}) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);

@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Card, Badge, Progress, Button } from './ui.jsx';
 
-
 const genericIcons = [
   Book, 
   BookOpen, 

@@ -18,7 +18,6 @@ const compareBySort = (sortBy) => (a, b) => {
   return 0;
 };
 
-
 const toUiCourse = (dto, idx) => {
   const studyYear = dto?.studyYear;
   const semester = dto?.semester;

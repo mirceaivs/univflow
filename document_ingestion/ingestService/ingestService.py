@@ -47,7 +47,6 @@ def verify_internal_access(x_internal_service_key: str = Header(...)):
     if x_internal_service_key != INTERNAL_API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden: Invalid Service Key")
 
-
 def trigger_worker_job(bucket_name: str, file_path: str):
     project_id = os.getenv("PROJECT_ID")
     region = os.getenv("REGION")
@@ -115,7 +114,6 @@ def trigger_worker_job(bucket_name: str, file_path: str):
                 print(f"[TRIGGER] Error response body: {e.read().decode('utf-8')}", flush=True)
             except Exception:
                 pass
-
 
 @app.post("/api/ingest")
 async def ingest_documents(
@@ -215,7 +213,6 @@ async def delete_entire_course_data(
             conn.execute('SET search_path = ag_catalog, "$user", public;')
             
             with conn.cursor() as cur:
-                # Obținem toate job_id-urile asociate acestui curs
                 cur.execute("SELECT job_id FROM rag_system.ingestion_jobs WHERE course_id = %s", (course_id,))
                 job_ids = [row[0] for row in cur.fetchall()]
 
@@ -240,7 +237,6 @@ async def delete_entire_course_data(
         for blob in blobs:
             blob.delete()
             
-        # Ștergem și imaginile/diagramele din GCS pentru fiecare job din cadrul cursului
         for job_id in job_ids:
             diagram_blobs = bucket.list_blobs(prefix=f"graphrag_ingestion/{job_id}/")
             for blob in diagram_blobs:

@@ -1,7 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '../services/apiClient.js';
 
-
 export const useUserProfile = () => {
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);

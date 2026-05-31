@@ -1,38 +1,31 @@
-# Stage 1: Builder
+
 FROM python:3.10-slim AS builder
 
 WORKDIR /app
 
-# Instalăm dependențele sistem necesare pentru compilarea pachetelor Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Creăm mediul virtual /opt/venv
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Stage 2: Runtime
 FROM python:3.10-slim AS runtime
 
 WORKDIR /app
 
-# Copiem virtualenv din stage-ul anterior
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copiem codul sursă al serviciului
 COPY . .
 
 ENV GCS_BASE_URL=https://storage.googleapis.com
 
-# Creăm utilizatorul non-root cloudrun pentru securitate sporită
 RUN useradd -m cloudrun && chown -R cloudrun:cloudrun /app
 USER cloudrun
 
-# Pornim worker-ul direct pentru Cloud Run Job
 ENTRYPOINT ["python", "worker.py"]

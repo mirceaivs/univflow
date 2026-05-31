@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-
 export const useCarousel = () => {
   const scrollRef = useRef(null);
 

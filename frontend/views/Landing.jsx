@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui.jsx';
 
-
 export const LandingView = ({ onLogin, isDarkMode, toggleTheme, isAuthLoading }) => {
   const { showNotification } = useNotification();
   const features = landingFeatures;

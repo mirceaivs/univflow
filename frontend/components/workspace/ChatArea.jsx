@@ -28,11 +28,11 @@ function preprocessMarkdown(text) {
   if (!text) return "";
   let processedText = text;
 
-  // Eliminăm descrierile vizuale (să nu fie afișate nici în chat-ul text, ele existând doar pentru contextul AI-ului)
+  
   processedText = processedText.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
   processedText = processedText.replace(/<ai_vision_description>[\s\S]*?<\/ai_vision_description>/gi, "");
 
-  // Convertim tagurile HTML de imagine în format Markdown pentru a fi randate controlat de ReactMarkdown
+  
   processedText = processedText.replace(/<img[^>]+src=["']([^"']+)["'][^>]*\/?>/gi, "![Diagramă Curs]($1)");
 
   processedText = processedText.replace(
