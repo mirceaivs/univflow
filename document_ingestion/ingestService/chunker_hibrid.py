@@ -89,12 +89,6 @@ class MultimodalSemanticPipeline:
         blob = bucket.blob(blob_name)
         blob.upload_from_string(image_bytes, content_type="image/png")
         
-        
-        try:
-            blob.make_public()
-        except Exception as e:
-            print(f"Nu s-a putut face public blob-ul direct (Uniform Bucket-Level Access activat): {e}")
-            
         gcs_base_url = os.getenv("GCS_BASE_URL", "https://storage.googleapis.com")
         gcs_public_url = f"{gcs_base_url}/{bucket_name}/{blob_name}"
 
@@ -247,7 +241,7 @@ class MultimodalSemanticPipeline:
                                         
                                     injection_block = (
                                         f"\n\n**[Imagine de referință extrasă din curs]**\n"
-                                        f"<img src=\"{image_url}\" style=\"max-width: 50%; height: auto;\" alt=\"Diagramă\"/>\n"
+                                        f"![Diagramă]({image_url})\n"
                                         f"<ai_vision_description>{ai_description}</ai_vision_description>\n\n"
                                     )
                                     page_text += injection_block
