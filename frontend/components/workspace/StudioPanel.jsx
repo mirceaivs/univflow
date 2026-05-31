@@ -130,7 +130,7 @@ export const StudioPanel = ({ mainContent, setMainContent, navigateToGenerateTes
                   title={mat.name}
                   onClick={(e) => {
                     e.stopPropagation();
-                    openDocumentPanel && openDocumentPanel({ url: mat.url, name: mat.name });
+                    openDocumentPanel && openDocumentPanel({ id: mat.id, url: mat.url, name: mat.name });
                   }}
                 >
                   <FileText className={`w-4 h-4 ${mat.type === 'pdf' ? 'text-red-500 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'}`} />

@@ -164,7 +164,7 @@ export const Sidebar = ({
                                 setView("workspace");
                               }
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors group disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors group outline-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
                               isCourseProcessing
                                 ? "text-slate-500 dark:text-slate-400"
                                 : isCourseActive

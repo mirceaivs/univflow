@@ -330,7 +330,7 @@ export const ChatArea = ({
       <div className="pb-6 px-4 md:px-8">
         <div className="max-w-3xl mx-auto relative flex flex-col gap-2">
           
-          <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-transparent transition-all flex flex-col p-2 min-h-[100px]">
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-transparent transition-all flex flex-col p-2">
             <div className="flex justify-start px-2 pt-1 pb-1">
               <button
                 onClick={() => setIsReasoningEnabled(!isReasoningEnabled)}
@@ -348,7 +348,7 @@ export const ChatArea = ({
             </div>
 
             <textarea
-              className="w-full flex-1 max-h-48 min-h-[60px] py-2 px-4 bg-transparent border-none resize-none focus:outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-[15px]"
+              className="w-full flex-1 max-h-48 min-h-[44px] py-2 px-4 bg-transparent border-none resize-none focus:outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-[15px] custom-scrollbar"
               placeholder={
                 isProcessing
                   ? "Așteaptă finalizarea procesării noilor materiale..."

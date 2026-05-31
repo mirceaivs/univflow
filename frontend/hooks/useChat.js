@@ -44,7 +44,7 @@ export function useChat({ courseId } = {}) {
           text: msg.content,
           citations: msg.citations || msg.message?.citations || [], 
           isStreaming: false
-        }));
+        })).reverse();
 
         setMessages(prev => {
           if (pageNum === 0) return formattedHistory;

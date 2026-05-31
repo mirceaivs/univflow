@@ -8,9 +8,10 @@ const cleanRawText = (rawText) => {
   if (!rawText) return "Fragment de text indisponibil.";
   let text = rawText;
 
-  
   text = text.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
-  text = text.replace(/<ai_vision_description>[\s\S]*?<\/ai_vision_description>/gi, "");
+  text = text.replace(/<ai_vision_description>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
+  text = text.replace(/\[Imagine de referință extrasă din curs\]/gi, "");
+  text = text.replace(/Diagramă/gi, "");
 
   
   text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");
