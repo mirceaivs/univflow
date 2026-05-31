@@ -109,9 +109,9 @@ export const Sidebar = ({
               <div key={item.id} className="w-full flex flex-col">
                 <button
                   onClick={() => setView(item.id)}
-                  className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 group outline-none focus:outline-none ${
+                  className={`w-full flex items-center p-3 rounded-xl transition-all duration-200 group ${
                     isActive
-                      ? "bg-white dark:bg-slate-900 text-primary-600 dark:text-primary-400 shadow-sm border border-primary-200 dark:border-primary-800/50"
+                      ? "bg-white dark:bg-slate-900 text-primary-600 dark:text-primary-400 shadow-sm border border-slate-200 dark:border-slate-800"
                       : "text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-100 border border-transparent"
                   } ${isExpanded ? "justify-start" : "justify-center"}`}
                   title={!isExpanded ? item.label : undefined}
@@ -168,8 +168,8 @@ export const Sidebar = ({
                               isCourseProcessing
                                 ? "text-slate-500 dark:text-slate-400"
                                 : isCourseActive
-                                ? "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/30 border border-primary-200/50 dark:border-primary-800/30"
-                                : "text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 border border-transparent"
+                                ? "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/30"
+                                : "text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-slate-100 dark:hover:bg-slate-800/50"
                             }`}
                             title={course.name}
                           >

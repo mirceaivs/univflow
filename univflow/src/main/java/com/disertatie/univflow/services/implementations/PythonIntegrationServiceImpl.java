@@ -106,7 +106,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
     public void init() {
         reactor.netty.http.client.HttpClient httpClient = reactor.netty.http.client.HttpClient.create()
                 .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, 15000)
-                .responseTimeout(Duration.ofSeconds(30));
+                .responseTimeout(Duration.ofSeconds(120));
 
         this.webClient = webClientBuilder
                 .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
@@ -114,7 +114,7 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
-        log.info("WebClient a fost configurat cu succes la adresa: {} cu timeout conexiune 15s și read 30s", askServiceUrl);
+        log.info("WebClient a fost configurat cu succes la adresa: {} cu timeout conexiune 15s și read 120s", askServiceUrl);
     }
 
     @Override
