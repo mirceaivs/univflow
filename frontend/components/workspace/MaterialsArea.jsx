@@ -102,6 +102,16 @@ export const MaterialsArea = ({
       job.status !== "FAILED"
   );
 
+  const prevProcessingRef = React.useRef(isProcessing);
+  React.useEffect(() => {
+    if (prevProcessingRef.current && !isProcessing) {
+      if (docsHook?.fetchDocuments) {
+        docsHook.fetchDocuments();
+      }
+    }
+    prevProcessingRef.current = isProcessing;
+  }, [isProcessing, docsHook]);
+
   
   const isUploadDisabled = localUploading || isProcessing;
 

@@ -4,6 +4,7 @@ import { Card, Button, Badge } from '../components/ui.jsx';
 import { useDocuments } from '../hooks/useDocuments.js';
 import { useCourses } from '../hooks/useCourses.js';
 import { apiClient } from '../services/apiClient.js';
+import { useIngestion } from '../components/context/IngestionContext.jsx';
 
 export const CourseMaterialsView = ({ setView, courseId, course }) => {
   const { courses } = useCourses();
@@ -54,7 +55,23 @@ export const CourseMaterialsView = ({ setView, courseId, course }) => {
     return (courses || []).find((c) => String(c.backendId) === String(courseId)) || null;
   }, [course, courseId, courses]);
 
-  const { materials, loading, uploading, uploadProgress, error, uploadDocuments, deleteDocument } = useDocuments({ courseId });
+  const { materials, loading, uploading, uploadProgress, error, uploadDocuments, deleteDocument, fetchDocuments } = useDocuments({ courseId });
+
+  const { activeJobs } = useIngestion();
+  const isProcessing = Object.values(activeJobs || {}).some(
+    (job) =>
+      String(job.courseId) === String(courseId) &&
+      job.status !== "COMPLETED" &&
+      job.status !== "FAILED"
+  );
+
+  const prevProcessingRef = React.useRef(isProcessing);
+  React.useEffect(() => {
+    if (prevProcessingRef.current && !isProcessing) {
+      if (fetchDocuments) fetchDocuments();
+    }
+    prevProcessingRef.current = isProcessing;
+  }, [isProcessing, fetchDocuments]);
 
   const headerSem = selectedCourse?.sem ?? null;
   const headerYear = selectedCourse?.year ?? null;

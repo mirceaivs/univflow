@@ -330,24 +330,9 @@ export const ChatArea = ({
       <div className="pb-6 px-4 md:px-8">
         <div className="max-w-3xl mx-auto relative flex flex-col gap-2">
           
-          <div className="flex justify-end">
-            <button
-              onClick={() => setIsReasoningEnabled(!isReasoningEnabled)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
-                isReasoningEnabled
-                  ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800/50 shadow-sm"
-                  : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              }`}
-              disabled={isTyping || isProcessing}
-            >
-              <BrainCircuit className={`w-4 h-4 ${isReasoningEnabled ? "animate-pulse" : ""}`} />
-              Deep Reasoning (3-Hops)
-            </button>
-          </div>
-
-          <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-transparent transition-all flex items-end gap-2 p-2">
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-transparent transition-all flex flex-col p-2 min-h-[100px]">
             <textarea
-              className="w-full max-h-32 min-h-[44px] py-2 px-3 bg-transparent border-none resize-none focus:outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-[15px]"
+              className="w-full flex-1 max-h-48 min-h-[60px] py-3 px-4 bg-transparent border-none resize-none focus:outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-[15px]"
               placeholder={
                 isProcessing
                   ? "Așteaptă finalizarea procesării noilor materiale..."
@@ -356,16 +341,33 @@ export const ChatArea = ({
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              rows={1}
+              rows={2}
               disabled={isTyping || isProcessing}
             />
-            <button
-              className="p-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50 shadow-sm shrink-0 mb-1 mr-1"
-              onClick={() => handleSendMessage()}
-              disabled={!chatInput.trim() || isTyping || isProcessing}
-            >
-              <ArrowUp className="w-5 h-5" />
-            </button>
+            
+            <div className="flex items-center justify-between px-2 pb-1 pt-2">
+              <button
+                onClick={() => setIsReasoningEnabled(!isReasoningEnabled)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 border ${
+                  isReasoningEnabled
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800/50 shadow-sm"
+                    : "bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+                disabled={isTyping || isProcessing}
+                title={isReasoningEnabled ? "Deep Reasoning Activ" : "Deep Reasoning Inactiv"}
+              >
+                <BrainCircuit className={`w-4 h-4 ${isReasoningEnabled ? "animate-pulse" : ""}`} />
+                Deep Reasoning
+              </button>
+
+              <button
+                className="p-2.5 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-md shrink-0"
+                onClick={() => handleSendMessage()}
+                disabled={!chatInput.trim() || isTyping || isProcessing}
+              >
+                <ArrowUp className="w-5 h-5" />
+              </button>
+            </div>
           </div>
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
             Răspunsurile sunt construite contextual. Verificați sursele atașate

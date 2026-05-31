@@ -222,6 +222,8 @@ export const WorkspaceView = ({
                 isLoadingHistory={workspace.loadingCourses || chat.isLoadingHistory}
                 openDocumentPanel={workspace.openDocumentPanel}
                 documents={courseDocuments}
+                isReasoningEnabled={chat.isReasoningEnabled}
+                setIsReasoningEnabled={chat.setIsReasoningEnabled}
               />
             )}
           </div>
