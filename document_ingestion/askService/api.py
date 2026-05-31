@@ -64,7 +64,7 @@ async def get_paginated_history(
         async with conn.cursor() as cur:
             await cur.execute("""
                 SELECT message FROM rag_system.chat_history 
-                WHERE session_id = %s ORDER BY created_at DESC 
+                WHERE session_id = %s ORDER BY id DESC 
                 LIMIT %s OFFSET %s
             """, (session_id, size, offset))
             rows = await cur.fetchall()
