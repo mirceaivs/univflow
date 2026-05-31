@@ -3,6 +3,7 @@ from typing import List, Optional
 
 class AskRequest(BaseModel):
     question: str
+    reasoning_enabled: bool = False
 
 class QuizRequest(BaseModel):
     topic: Optional[str] = "conceptele principale"

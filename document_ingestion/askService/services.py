@@ -33,26 +33,41 @@ async def extract_graph_keywords(llm, question: str) -> List[str]:
             pass
     return [word.lower() for word in question.split() if len(word) > 4][:3]
 
-async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str, keywords: List[str] = None) -> str:
+async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str, keywords: List[str] = None, reasoning_enabled: bool = False) -> str:
     """Caută relații conceptuale în graful de cunoștințe folosind keywords pre-extrase."""
     if not keywords:
         return ""
 
-    cypher_query = f"""
-        SELECT a::text
-        FROM cypher('{GRAPH_NAME}', $$
-            MATCH (n:Entity)-[r]-(m:Entity)
-            WHERE n.course_id = '{course_id}'
-            AND (
-                any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
-                any(k IN $keywords WHERE toLower(m.id) CONTAINS toLower(k)) OR 
-                any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k)) OR 
-                any(k IN $keywords WHERE toLower(m.label) CONTAINS toLower(k))
-            )
-            RETURN {{source: n.id, relation: r.type, target: m.id}}
-        $$, %s) AS (a agtype)
-        LIMIT 25;
-    """
+    if reasoning_enabled:
+        cypher_query = f"""
+            SELECT a::text
+            FROM cypher('{GRAPH_NAME}', $$
+                MATCH (n:Entity)-[r1]-(m1:Entity)-[r2]-(m2:Entity)-[r3]-(m3:Entity)
+                WHERE n.course_id = '{course_id}'
+                AND (
+                    any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
+                    any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k))
+                )
+                RETURN {{source: n.id, rel1: r1.type, node1: m1.id, rel2: r2.type, node2: m2.id, rel3: r3.type, target: m3.id}}
+            $$, %s) AS (a agtype)
+            LIMIT 35;
+        """
+    else:
+        cypher_query = f"""
+            SELECT a::text
+            FROM cypher('{GRAPH_NAME}', $$
+                MATCH (n:Entity)-[r]-(m:Entity)
+                WHERE n.course_id = '{course_id}'
+                AND (
+                    any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
+                    any(k IN $keywords WHERE toLower(m.id) CONTAINS toLower(k)) OR 
+                    any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k)) OR 
+                    any(k IN $keywords WHERE toLower(m.label) CONTAINS toLower(k))
+                )
+                RETURN {{source: n.id, relation: r.type, target: m.id}}
+            $$, %s) AS (a agtype)
+            LIMIT 25;
+        """
 
     graph_results = []
     async with pool.connection() as conn:
@@ -62,10 +77,20 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
             for row in rows:
                 try:
                     parsed_edge = json.loads(row[0].replace("'", '"')) if isinstance(row[0], str) else row[0]
-                    src = parsed_edge.get("source", "N/A")
-                    rel = parsed_edge.get("relation", "asociat")
-                    tgt = parsed_edge.get("target", "N/A")
-                    graph_results.append(f"{src} --> {rel} --> {tgt}")
+                    if reasoning_enabled:
+                        src = parsed_edge.get("source", "N/A")
+                        rel1 = parsed_edge.get("rel1", "asociat")
+                        n1 = parsed_edge.get("node1", "N/A")
+                        rel2 = parsed_edge.get("rel2", "asociat")
+                        n2 = parsed_edge.get("node2", "N/A")
+                        rel3 = parsed_edge.get("rel3", "asociat")
+                        tgt = parsed_edge.get("target", "N/A")
+                        graph_results.append(f"[{src}] --> {rel1} --> [{n1}] --> {rel2} --> [{n2}] --> {rel3} --> [{tgt}]")
+                    else:
+                        src = parsed_edge.get("source", "N/A")
+                        rel = parsed_edge.get("relation", "asociat")
+                        tgt = parsed_edge.get("target", "N/A")
+                        graph_results.append(f"{src} --> {rel} --> {tgt}")
                 except Exception:
                     continue
                     
@@ -179,7 +204,8 @@ async def sse_interaction_generator(
     request_obj,
     question: str,
     user_id: str,
-    course_id: str
+    course_id: str,
+    reasoning_enabled: bool = False
 ) -> AsyncGenerator[str, None]:
     pool = db_pool
     
@@ -194,7 +220,7 @@ async def sse_interaction_generator(
     )
 
     task_vector = asyncio.create_task(get_vector_context(pool, embeddings_model, search_query, course_id))
-    task_graph = asyncio.create_task(get_graph_context(pool, search_query, course_id, keywords=graph_keywords))
+    task_graph = asyncio.create_task(get_graph_context(pool, search_query, course_id, keywords=graph_keywords, reasoning_enabled=reasoning_enabled))
     task_summary = asyncio.create_task(get_global_summary(pool, course_id))
 
     vector_results, graph_text, summary_results = await asyncio.gather(

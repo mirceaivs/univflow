@@ -39,7 +39,8 @@ async def handle_ask_query(
             request,
             payload.question,
             x_user_id,
-            x_course_id
+            x_course_id,
+            payload.reasoning_enabled
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}

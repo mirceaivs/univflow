@@ -7,6 +7,7 @@ export function useChat({ courseId } = {}) {
   const [citations, setCitations] = useState([]);
   const [loadingText, setLoadingText] = useState('Răspund...');
   const [chatInput, setChatInput] = useState('');
+  const [isReasoningEnabled, setIsReasoningEnabled] = useState(false);
 
   
   const [page, setPage] = useState(0);
@@ -84,7 +85,7 @@ export function useChat({ courseId } = {}) {
     }
   }, [isLoadingHistory, hasMore, courseId, page, loadHistory]);
 
-  const streamRawTextAnswer = useCallback(async ({ question, ctxCourseId }) => {
+  const streamRawTextAnswer = useCallback(async ({ question, ctxCourseId, isReasoningEnabled }) => {
     const aiMsgId = `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setMessages(prev => [...prev, { id: aiMsgId, role: 'ai', text: '', isStreaming: true }]);
 
@@ -110,7 +111,7 @@ export function useChat({ courseId } = {}) {
         method: 'POST',
         headers: getHeaders(),
         credentials: 'include',
-        body: JSON.stringify({ question, courseId: ctxCourseId }),
+        body: JSON.stringify({ question, courseId: ctxCourseId, reasoning_enabled: isReasoningEnabled }),
         signal: controller.signal
       });
 
@@ -223,7 +224,7 @@ export function useChat({ courseId } = {}) {
     setTimeout(scrollToBottom, 50);
 
     try {
-      await streamRawTextAnswer({ question, ctxCourseId: courseId });
+      await streamRawTextAnswer({ question, ctxCourseId: courseId, isReasoningEnabled });
     } catch {
       setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'ai', text: 'Eroare la generare.', isStreaming: false }]);
     } finally {
@@ -264,6 +265,8 @@ export function useChat({ courseId } = {}) {
     loadMoreHistory,
     hasMore,
     isLoadingHistory,
-    citations
+    citations,
+    isReasoningEnabled,
+    setIsReasoningEnabled
   };
 }
