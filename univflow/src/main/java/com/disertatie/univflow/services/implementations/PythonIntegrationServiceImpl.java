@@ -123,11 +123,14 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
     }
 
     @Override
-    public ResponseEntity<StreamingResponseBody> askAiQuestionStream(String question, String courseId) {
+    public ResponseEntity<StreamingResponseBody> askAiQuestionStream(String question, String courseId, boolean reasoningEnabled) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         String signalKey = email + "|" + courseId;
         stopSignals.put(signalKey, false);
-        Map<String, String> payload = Map.of("question", question);
+        Map<String, Object> payload = Map.of(
+            "question", question,
+            "reasoning_enabled", reasoningEnabled
+        );
 
         StreamingResponseBody responseBody = outputStream -> {
             if (Boolean.TRUE.equals(stopSignals.get(signalKey))) return;

@@ -32,16 +32,21 @@ public class RagController {
 
     @PostMapping(value = "/ask/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<StreamingResponseBody> askQuestion(
-            @RequestBody Map<String, String> payload) { 
+            @RequestBody Map<String, Object> payload) { 
 
-        String question = payload.get("question");
-        String courseId = payload.get("courseId"); 
+        String question = (String) payload.get("question");
+        String courseId = (String) payload.get("courseId"); 
+        
+        boolean reasoningEnabled = false;
+        if (payload.containsKey("reasoning_enabled")) {
+            reasoningEnabled = Boolean.parseBoolean(payload.get("reasoning_enabled").toString());
+        }
 
         if (question == null || question.trim().isEmpty() || courseId == null) {
             throw new IllegalArgumentException("Întrebarea și id-ul cursului sunt obligatorii.");
         }
 
-        return pythonIntegrationService.askAiQuestionStream(question, courseId);
+        return pythonIntegrationService.askAiQuestionStream(question, courseId, reasoningEnabled);
     }
 
     @PostMapping("/stop")

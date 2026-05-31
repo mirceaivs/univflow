@@ -38,8 +38,42 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
     if not keywords:
         return ""
 
+    graph_results = []
+    
+    # --- 1-HOP QUERY (bază obligatorie pentru a nu pierde noduri izolate) ---
+    cypher_query_1hop = f"""
+        SELECT a::text
+        FROM cypher('{GRAPH_NAME}', $$
+            MATCH (n:Entity)-[r]-(m:Entity)
+            WHERE n.course_id = '{course_id}'
+            AND (
+                any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
+                any(k IN $keywords WHERE toLower(m.id) CONTAINS toLower(k)) OR 
+                any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k)) OR 
+                any(k IN $keywords WHERE toLower(m.label) CONTAINS toLower(k))
+            )
+            RETURN {{source: n.id, relation: r.type, target: m.id}}
+        $$, %s) AS (a agtype)
+        LIMIT 25;
+    """
+
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(cypher_query_1hop, (json.dumps({"keywords": keywords}),))
+            rows_1hop = await cur.fetchall()
+            for row in rows_1hop:
+                try:
+                    parsed_edge = json.loads(row[0].replace("'", '"')) if isinstance(row[0], str) else row[0]
+                    src = parsed_edge.get("source", "N/A")
+                    rel = parsed_edge.get("relation", "asociat")
+                    tgt = parsed_edge.get("target", "N/A")
+                    graph_results.append(f"[{src}] --> {rel} --> [{tgt}]")
+                except Exception:
+                    continue
+
+    # --- 3-HOP QUERY (Doar dacă Deep Reasoning este activat) ---
     if reasoning_enabled:
-        cypher_query = f"""
+        cypher_query_3hop = f"""
             SELECT a::text
             FROM cypher('{GRAPH_NAME}', $$
                 MATCH (n:Entity)-[r1]-(m1:Entity)-[r2]-(m2:Entity)-[r3]-(m3:Entity)
@@ -50,34 +84,15 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
                 )
                 RETURN {{source: n.id, rel1: r1.type, node1: m1.id, rel2: r2.type, node2: m2.id, rel3: r3.type, target: m3.id}}
             $$, %s) AS (a agtype)
-            LIMIT 35;
+            LIMIT 20;
         """
-    else:
-        cypher_query = f"""
-            SELECT a::text
-            FROM cypher('{GRAPH_NAME}', $$
-                MATCH (n:Entity)-[r]-(m:Entity)
-                WHERE n.course_id = '{course_id}'
-                AND (
-                    any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(m.id) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(m.label) CONTAINS toLower(k))
-                )
-                RETURN {{source: n.id, relation: r.type, target: m.id}}
-            $$, %s) AS (a agtype)
-            LIMIT 25;
-        """
-
-    graph_results = []
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(cypher_query, (json.dumps({"keywords": keywords}),))
-            rows = await cur.fetchall()
-            for row in rows:
-                try:
-                    parsed_edge = json.loads(row[0].replace("'", '"')) if isinstance(row[0], str) else row[0]
-                    if reasoning_enabled:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(cypher_query_3hop, (json.dumps({"keywords": keywords}),))
+                rows_3hop = await cur.fetchall()
+                for row in rows_3hop:
+                    try:
+                        parsed_edge = json.loads(row[0].replace("'", '"')) if isinstance(row[0], str) else row[0]
                         src = parsed_edge.get("source", "N/A")
                         rel1 = parsed_edge.get("rel1", "asociat")
                         n1 = parsed_edge.get("node1", "N/A")
@@ -86,13 +101,8 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
                         rel3 = parsed_edge.get("rel3", "asociat")
                         tgt = parsed_edge.get("target", "N/A")
                         graph_results.append(f"[{src}] --> {rel1} --> [{n1}] --> {rel2} --> [{n2}] --> {rel3} --> [{tgt}]")
-                    else:
-                        src = parsed_edge.get("source", "N/A")
-                        rel = parsed_edge.get("relation", "asociat")
-                        tgt = parsed_edge.get("target", "N/A")
-                        graph_results.append(f"{src} --> {rel} --> {tgt}")
-                except Exception:
-                    continue
+                    except Exception:
+                        continue
                     
     graph_results = list(dict.fromkeys(graph_results))
     
