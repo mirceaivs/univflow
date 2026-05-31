@@ -38,41 +38,43 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
     if not keywords:
         return ""
 
+    # Build conditions dynamically to avoid AGE any() WHERE syntax errors
+    clean_keywords = [k.replace("'", "") for k in keywords]
+    
     if reasoning_enabled:
+        conds = [f"toLower(n.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}'" for k in clean_keywords]
+        cond_str = " OR ".join(conds)
         cypher_query = f"""
             SELECT a::text
             FROM cypher('{GRAPH_NAME}', $$
                 MATCH (n:Entity)-[r1]-(m1:Entity)-[r2]-(m2:Entity)-[r3]-(m3:Entity)
                 WHERE n.course_id = '{course_id}'
-                AND (
-                    any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k))
-                )
+                AND ({cond_str})
                 RETURN {{source: n.id, rel1: type(r1), node1: m1.id, rel2: type(r2), node2: m2.id, rel3: type(r3), target: m3.id}}
-            $$, %s) AS (a agtype)
+            $$) AS (a agtype)
             LIMIT 35;
         """
     else:
+        conds = [
+            f"toLower(n.id) CONTAINS '{k}' OR toLower(m.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}' OR toLower(m.label) CONTAINS '{k}'"
+            for k in clean_keywords
+        ]
+        cond_str = " OR ".join(conds)
         cypher_query = f"""
             SELECT a::text
             FROM cypher('{GRAPH_NAME}', $$
                 MATCH (n:Entity)-[r]-(m:Entity)
                 WHERE n.course_id = '{course_id}'
-                AND (
-                    any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(m.id) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k)) OR 
-                    any(k IN $keywords WHERE toLower(m.label) CONTAINS toLower(k))
-                )
+                AND ({cond_str})
                 RETURN {{source: n.id, relation: type(r), target: m.id}}
-            $$, %s) AS (a agtype)
+            $$) AS (a agtype)
             LIMIT 25;
         """
 
     graph_results = []
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
-            await cur.execute(cypher_query, (json.dumps({"keywords": keywords}),))
+            await cur.execute(cypher_query)
             rows = await cur.fetchall()
             for row in rows:
                 try:

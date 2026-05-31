@@ -172,7 +172,7 @@ export function useChat({ courseId } = {}) {
                   
                   const errMsg = parsed.error || 'Eroare necunoscută de la server.';
                   setMessages((prev) =>
-                    prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + `\n\n⚠️ ${errMsg}` } : m))
+                    prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + `\n\n${errMsg}` } : m))
                   );
                 } else if (eventType === 'message' || !eventType) {
                   if (parsed.text) {
@@ -200,7 +200,7 @@ export function useChat({ courseId } = {}) {
       setMessages((prev) => prev.map((m) => {
         if (m.id === aiMsgId) {
           const finalText = (!m.text || m.text.trim() === '') 
-            ? '⚠️ Nu am putut genera un răspuns. Verificați că există documente încărcate pentru acest curs și încercați din nou.' 
+            ? 'Nu am putut genera un răspuns. Verificați că există documente încărcate pentru acest curs și încercați din nou.' 
             : m.text;
           return { ...m, text: finalText, isStreaming: false };
         }
