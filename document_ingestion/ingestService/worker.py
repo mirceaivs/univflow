@@ -76,8 +76,23 @@ pipeline = MultimodalSemanticPipeline(
 
 def extract_graph_data(text_chunk: str) -> GraphExtraction:
     prompt = (
-        "Analizează următorul text în limba română și extrage un graf de cunoștințe cuprinzător. "
-        "Identifică entitățile principale ca noduri și relațiile dintre ele ca muchii.\n"
+        "Analizează următorul text în limba română și extrage un graf de cunoștințe DETALIAT și PRECIS.\n\n"
+        "INSTRUCȚIUNI:\n"
+        "1. Identifică TOATE entitățile (concepte, tehnologii, procese, persoane, algoritmi, structuri de date).\n"
+        "2. Pentru câmpul 'id' al entităților, folosește EXCLUSIV forma de dicționar (nominativ singular, "
+        "ex: 'bază de date' în loc de 'bazelor de date', 'index' în loc de 'indecșilor').\n"
+        "3. Folosește etichete (label) descriptive: Concept, Tehnologie, Algoritm, Structură de Date, "
+        "Proces, Proprietate, Persoană, Standard, Operație.\n"
+        "4. Extrage relații de TOATE tipurile, inclusiv:\n"
+        "   - ierarhice: 'este_tip_de', 'este_subtip_al', 'conține', 'face_parte_din'\n"
+        "   - funcționale: 'utilizează', 'implementează', 'optimizează', 'depinde_de'\n"
+        "   - descriptive: 'are_proprietatea', 'se_aplică_la', 'este_definit_ca'\n"
+        "   - comparative: 'este_alternativă_la', 'este_opus_lui', 'este_similar_cu'\n"
+        "5. NU extrage relații triviale sau redundante.\n\n"
+        "EXEMPLU:\n"
+        "Text: 'Indexul B-Tree este o structură arborescentă echilibrată folosită pentru căutări rapide în baze de date relaționale.'\n"
+        "Noduri: [{id: 'index B-Tree', label: 'Structură de Date'}, {id: 'bază de date relațională', label: 'Tehnologie'}]\n"
+        "Muchii: [{source: 'index B-Tree', target: 'bază de date relațională', relation: 'se_aplică_la'}]\n\n"
         f"Text:\n{text_chunk}"
     )
     return structured_llm.invoke(prompt)
@@ -93,7 +108,13 @@ def is_retryable_exception(e):
     reraise=True
 )
 def fetch_ai_data_with_retry(chunk_obj):
-    emb = pipeline.embeddings.embed_query(chunk_obj.page_content)
+    # Curăță textul de artefacte vizuale/HTML pentru embedding-uri mai pure
+    clean_text = MultimodalSemanticPipeline._clean_for_embedding(chunk_obj.page_content)
+    # Contextual retrieval: prepune header + source file la textul de embedding
+    header = chunk_obj.metadata.get("header", "")
+    source = chunk_obj.metadata.get("source_file", "")
+    context_prefix = f"[{source}] {header}\n" if header else ""
+    emb = pipeline.embeddings.embed_query(context_prefix + clean_text)
     graph = extract_graph_data(chunk_obj.page_content)
     return chunk_obj, emb, graph
 
@@ -172,7 +193,7 @@ def process_single_execution():
         print(f"[{job_id}] Începe preluarea datelor AI în paralel pentru {total_chunks} chunk-uri...")
 
         ai_results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
             futures = [executor.submit(fetch_ai_data, c) for c in semantic_chunks]
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -189,6 +210,9 @@ def process_single_execution():
                 conn.execute("LOAD 'age';")
                 conn.execute("SET search_path = ag_catalog, \"$user\", public;")
                 
+                unique_nodes = {}
+                unique_edges = set()
+                
                 with conn.cursor() as cur:
                     for idx, (chunk, embedding_vector, graph_data) in enumerate(ai_results):
                         # Inserare text și embed
@@ -197,41 +221,55 @@ def process_single_execution():
                             VALUES (%s, %s, %s, %s)
                         """, (job_id, chunk.page_content, str(embedding_vector), json.dumps(chunk.metadata)))
 
-                        # Inserare noduri graf
+                        # Colectare noduri unice
                         if graph_data and hasattr(graph_data, 'nodes') and graph_data.nodes:
                             for node in graph_data.nodes:
-                                cur.execute("""
-                                    SELECT * FROM cypher('document_knowledge_graph', $$
-                                        MERGE (n:Entity {id: $id})
-                                        SET n.label = $label, n.course_id = $course
-                                        RETURN n
-                                    $$, %(params)s) AS (v agtype);
-                                """, {"params": json.dumps({
-                                    "id": node.id,
-                                    "label": node.label,
-                                    "course": course_id
-                                })})
+                                unique_nodes[node.id] = node.label
 
-                        # Inserare muchii graf
+                        # Colectare muchii unice
                         if graph_data and hasattr(graph_data, 'edges') and graph_data.edges:
                             for edge in graph_data.edges:
-                                cur.execute("""
-                                    SELECT * FROM cypher('document_knowledge_graph', $$
-                                        MATCH (a:Entity {id: $source}), (b:Entity {id: $target})
-                                        MERGE (a)-[r:RELATION {type: $relation}]->(b)
-                                        RETURN r
-                                    $$, %(params)s) AS (v agtype);
-                                """, {"params": json.dumps({
-                                    "source": edge.source,
-                                    "target": edge.target,
-                                    "relation": edge.relation
-                                })})
+                                unique_edges.add((edge.source, edge.target, edge.relation))
 
-                        progress = int(((idx + 1) / total_chunks) * 100)
+                        progress = int(((idx + 1) / total_chunks) * 50)
                         cur.execute("""
                             UPDATE rag_system.ingestion_jobs
                             SET progress = %s WHERE job_id = %s
                         """, (progress, job_id))
+
+                    # Inserare bulk noduri (deduplicate)
+                    for n_id, n_label in unique_nodes.items():
+                        cur.execute("""
+                            SELECT * FROM cypher('document_knowledge_graph', $$
+                                MERGE (n:Entity {id: $id, course_id: $course})
+                                SET n.label = $label
+                                RETURN n
+                            $$, %(params)s) AS (v agtype);
+                        """, {"params": json.dumps({
+                            "id": n_id,
+                            "label": n_label,
+                            "course": course_id
+                        })})
+
+                    # Inserare bulk muchii (deduplicate)
+                    for s, t, r in unique_edges:
+                        cur.execute("""
+                            SELECT * FROM cypher('document_knowledge_graph', $$
+                                MATCH (a:Entity {id: $source, course_id: $course}), (b:Entity {id: $target, course_id: $course})
+                                MERGE (a)-[rel:RELATION {type: $relation}]->(b)
+                                RETURN rel
+                            $$, %(params)s) AS (v agtype);
+                        """, {"params": json.dumps({
+                            "source": s,
+                            "target": t,
+                            "relation": r,
+                            "course": course_id
+                        })})
+
+                    cur.execute("""
+                        UPDATE rag_system.ingestion_jobs
+                        SET progress = 95 WHERE job_id = %s
+                    """, (job_id,))
                 
                 conn.commit()
             except Exception as db_err:

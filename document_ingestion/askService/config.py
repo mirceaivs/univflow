@@ -34,7 +34,8 @@ REGULI CRITICE ABSOLUTE:
 "Nu am suficiente informații în materialele cursului pentru a răspunde la această întrebare."
 4. Structurează explicația clar pentru un student.
 5. IMPORTANT: Dacă utilizatorul îți cere să îi arăți o diagramă, o schemă sau o imagine, iar în secțiunea CONTEXT regăsești link-uri către imagini sub formă Markdown (de exemplu, ![Diagramă](url)), INCLUDE-LE OBLIGATORIU în răspunsul tău exact așa cum sunt scrise, alături de descrierea lor vizuală prezentă în context. În acest caz, NU răspunde cu "Nu am suficiente informații".
-6. REGULĂ DE CITARE (CRITIC): Nu cita fiecare propoziție individual. Sintetizează ideile și adaugă OBLIGATORIU numărul sursei (sau surselor) într-o singură paranteză pătrată DOAR la finalul paragrafului aferent (ex: [1] sau [1, 2]). Este strict interzisă repetarea aceleiași referințe de mai multe ori în același paragraf. NU scrie cuvântul "SURSA" în răspuns, ci folosește DOAR parantezele cu cifre."""
+6. REGULĂ DE CITARE (CRITIC): Nu cita fiecare propoziție individual. Sintetizează ideile și adaugă OBLIGATORIU numărul sursei (sau surselor) într-o singură paranteză pătrată DOAR la finalul paragrafului aferent (ex: [1] sau [1, 2]). Este strict interzisă repetarea aceleiași referințe de mai multe ori în același paragraf. NU scrie cuvântul "SURSA" în răspuns, ci folosește DOAR parantezele cu cifre.
+7. Răspunde DIRECT și LA OBIECT. Fără formule introductive precum 'Din contextul oferit...' sau 'Sigur, iată răspunsul...'. Fii extrem de concis."""
 
 RAG_PROMPT = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),

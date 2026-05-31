@@ -62,8 +62,23 @@ class MultimodalSemanticPipeline:
         self.semantic_chunker = SemanticChunker(
             self.embeddings,
             breakpoint_threshold_type="percentile",
-            breakpoint_threshold_amount=95
+            breakpoint_threshold_amount=85
         )
+
+    @staticmethod
+    def _clean_for_embedding(text: str) -> str:
+        """Curăță textul de artefacte vizuale/HTML pentru a produce embedding-uri mai pure."""
+        # Elimină blocurile de descriere AI
+        text = re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', text, flags=re.DOTALL)
+        # Elimină tag-urile HTML de imagine
+        text = re.sub(r'<img[^>]*/?>', '', text)
+        # Elimină liniile cu "[Imagine de referință...]"
+        text = re.sub(r'\*\*\[Imagine de referință[^\]]*\]\*\*', '', text)
+        # Elimină markdown bold/italic excesiv
+        text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
+        # Colapsează spații și newline-uri
+        text = re.sub(r'\n{2,}', '\n', text).strip()
+        return text
 
     @sync_exponential_backoff(retries=4, initial_delay=2.0)
     def _interpret_visual_element(self, image_bytes, context_type, storage_client, bucket_name, job_id, element_index):
@@ -219,9 +234,7 @@ class MultimodalSemanticPipeline:
                     # Eliminam imaginile neprocesate (intentionally omitted)
                     page_text = re.sub(r'==>\s*picture.*?intentionally omitted\s*<==', '', page_text, flags=re.IGNORECASE)
                     
-                    # Curățare zgomot de header/footer specific (Data Warehousing)
-                    page_text = re.sub(r'(?i)^\s*Data Warehousing & Business Intelligence\s*$', '', page_text, flags=re.MULTILINE)
-                    page_text = re.sub(r'(?i)^\s*5\.\s*Indecși\s*$', '', page_text, flags=re.MULTILINE)
+
                     
                     if 'images' in page_data:
                         for img_meta in page_data['images']:
@@ -281,7 +294,7 @@ class MultimodalSemanticPipeline:
                 project=self.project_id,
                 location=self.location,
                 credentials=self.credentials,
-                temperature=0.5
+                temperature=0.1
             )
             
             summary_response = llm_summary.invoke([HumanMessage(content=summary_prompt)])
@@ -359,6 +372,11 @@ class MultimodalSemanticPipeline:
             doc.page_content = restore_tables(doc.page_content, tables_list)
             # Curățăm eventualele linii goale excesive adăugate la restabilire
             doc.page_content = re.sub(r'\n{3,}', '\n\n', doc.page_content).strip()
+            
+            # Extrage header-ul markdown cel mai relevant din chunk
+            header_match = re.search(r'^#{1,4}\s+(.+)$', doc.page_content, re.MULTILINE)
+            if header_match:
+                doc.metadata["header"] = header_match.group(1).strip()
         
         if global_summary_doc:
             docs.insert(0, global_summary_doc)

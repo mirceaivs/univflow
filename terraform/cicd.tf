@@ -26,7 +26,7 @@ resource "google_cloudbuild_trigger" "frontend_trigger" {
   name        = "deploy-frontend"
   description = "Build and deploy frontend"
   location    = "global"
-  
+
   service_account = "projects/${var.project_id}/serviceAccounts/${var.project_number}-compute@developer.gserviceaccount.com"
 
   github {
@@ -49,7 +49,7 @@ resource "google_cloudbuild_trigger" "frontend_trigger" {
       args = ["push", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/frontend:latest"]
     }
     step {
-      name = "gcr.io/google.com/cloudsdktool/cloud-sdk"
+      name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
       # Argumentul critic "--no-allow-unauthenticated" protejează perimetrul IAP
       args = ["run", "deploy", "frontend-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/frontend:latest", "--region", var.region, "--no-allow-unauthenticated"]
@@ -63,9 +63,9 @@ resource "google_cloudbuild_trigger" "frontend_trigger" {
 
 # 2. Java Backend Trigger
 resource "google_cloudbuild_trigger" "java_backend_trigger" {
-  name        = "deploy-java-backend"
-  location    = "global"
-  
+  name     = "deploy-java-backend"
+  location = "global"
+
   service_account = "projects/${var.project_id}/serviceAccounts/${var.project_number}-compute@developer.gserviceaccount.com"
 
   github {
@@ -89,9 +89,9 @@ resource "google_cloudbuild_trigger" "java_backend_trigger" {
       args = ["push", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/java-backend:latest"]
     }
     step {
-      name = "gcr.io/google.com/cloudsdktool/cloud-sdk"
+      name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
-      args = ["run", "deploy", "java-backend-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/java-backend:latest", "--region", var.region]
+      args       = ["run", "deploy", "java-backend-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/java-backend:latest", "--region", var.region]
     }
     options {
       logging      = "CLOUD_LOGGING_ONLY"
@@ -103,9 +103,9 @@ resource "google_cloudbuild_trigger" "java_backend_trigger" {
 
 # 3. Ingest Service Trigger
 resource "google_cloudbuild_trigger" "ingest_service_trigger" {
-  name        = "deploy-ingest-service"
-  location    = "global"
-  
+  name     = "deploy-ingest-service"
+  location = "global"
+
   service_account = "projects/${var.project_id}/serviceAccounts/${var.project_number}-compute@developer.gserviceaccount.com"
 
   github {
@@ -128,9 +128,9 @@ resource "google_cloudbuild_trigger" "ingest_service_trigger" {
       args = ["push", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ingest-service:latest"]
     }
     step {
-      name = "gcr.io/google.com/cloudsdktool/cloud-sdk"
+      name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
-      args = ["run", "deploy", "ingest-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ingest-service:latest", "--region", var.region]
+      args       = ["run", "deploy", "ingest-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ingest-service:latest", "--region", var.region]
     }
     options {
       logging = "CLOUD_LOGGING_ONLY"
@@ -141,9 +141,9 @@ resource "google_cloudbuild_trigger" "ingest_service_trigger" {
 
 # 4. Ask Service Trigger
 resource "google_cloudbuild_trigger" "ask_service_trigger" {
-  name        = "deploy-ask-service"
-  location    = "global"
-  
+  name     = "deploy-ask-service"
+  location = "global"
+
   service_account = "projects/${var.project_id}/serviceAccounts/${var.project_number}-compute@developer.gserviceaccount.com"
 
   github {
@@ -166,9 +166,9 @@ resource "google_cloudbuild_trigger" "ask_service_trigger" {
       args = ["push", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ask-service:latest"]
     }
     step {
-      name = "gcr.io/google.com/cloudsdktool/cloud-sdk"
+      name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
-      args = ["run", "deploy", "ask-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ask-service:latest", "--region", var.region]
+      args       = ["run", "deploy", "ask-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ask-service:latest", "--region", var.region]
     }
     options {
       logging = "CLOUD_LOGGING_ONLY"
@@ -179,9 +179,9 @@ resource "google_cloudbuild_trigger" "ask_service_trigger" {
 
 # 5. Worker Job Trigger
 resource "google_cloudbuild_trigger" "worker_job_trigger" {
-  name        = "deploy-worker-job"
-  location    = "global"
-  
+  name     = "deploy-worker-job"
+  location = "global"
+
   service_account = "projects/${var.project_id}/serviceAccounts/${var.project_number}-compute@developer.gserviceaccount.com"
 
   github {
@@ -204,9 +204,9 @@ resource "google_cloudbuild_trigger" "worker_job_trigger" {
       args = ["push", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ingest-worker:latest"]
     }
     step {
-      name = "gcr.io/google.com/cloudsdktool/cloud-sdk"
+      name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
-      args = ["run", "jobs", "update", "ingest-worker-job", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ingest-worker:latest", "--region", var.region]
+      args       = ["run", "jobs", "update", "ingest-worker-job", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ingest-worker:latest", "--region", var.region]
     }
     options {
       logging = "CLOUD_LOGGING_ONLY"

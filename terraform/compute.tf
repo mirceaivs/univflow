@@ -18,7 +18,7 @@ resource "google_compute_firewall" "db_firewall_internal" {
   }
 
   # Permite accesul doar din plaja de adrese a VPC-ului (ex. din default subnet sau connector)
-  source_ranges = ["10.128.0.0/9"] 
+  source_ranges = ["10.128.0.0/9"]
   target_tags   = ["univflow-db"]
   depends_on    = [google_project_service.apis]
 }
@@ -39,7 +39,7 @@ resource "google_compute_instance" "db_vm" {
   network_interface {
     network    = "default"
     network_ip = google_compute_address.db_internal_ip.address
-    
+
     # Adaugam access_config gol pentru a atribui un IP public ephemeral (pentru internet egress la startup)
     access_config {}
   }

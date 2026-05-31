@@ -1,7 +1,7 @@
 locals {
   dummy_image = "us-docker.pkg.dev/cloudrun/container/hello"
   db_host     = google_compute_address.db_internal_ip.address
-  
+
   # Deterministic URLs
   backend_url = "https://java-backend-service-${var.project_number}.${var.region}.run.app"
   ingest_url  = "https://ingest-service-${var.project_number}.${var.region}.run.app"
@@ -10,10 +10,10 @@ locals {
 
 # --- 1. Frontend Service ---
 resource "google_cloud_run_v2_service" "frontend" {
-  provider = google-beta
-  name     = "frontend-service"
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_ALL" # Frontend trebuie sa fie accesibil din afara, dar va fi protejat de IAP
+  provider    = google-beta
+  name        = "frontend-service"
+  location    = var.region
+  ingress     = "INGRESS_TRAFFIC_ALL" # Frontend trebuie sa fie accesibil din afara, dar va fi protejat de IAP
   iap_enabled = true
 
   template {
@@ -289,8 +289,8 @@ resource "google_cloud_run_v2_service" "ask_service" {
       }
       resources {
         limits = {
-          cpu    = "2"
-          memory = "2Gi"
+          cpu    = "4"
+          memory = "4Gi"
         }
         startup_cpu_boost = true
       }
@@ -331,7 +331,7 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         }
       }
       containers {
-        image = local.dummy_image
+        image   = local.dummy_image
         command = ["python", "worker.py"]
         env {
           name  = "DB_HOST"
@@ -367,7 +367,7 @@ resource "google_cloud_run_v2_job" "ingest_worker" {
         }
         env {
           name  = "GEMINI_MODEL_NAME"
-          value = "gemini-3.5-flash"
+          value = "gemini-3.1-pro-preview"
         }
         env {
           name = "DB_PASS"

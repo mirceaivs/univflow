@@ -3,29 +3,61 @@ import asyncio
 import uuid
 import re
 from typing import AsyncGenerator, List, Any
+import time
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from psycopg_pool import AsyncConnectionPool
 from config import GRAPH_NAME, HISTORY_TABLE_NAME, RAG_PROMPT
 
-async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str) -> str:
+async def extract_graph_keywords(llm, question: str) -> List[str]:
+    """Extrage până la 4 concepte/entități din întrebare, folosind LLM."""
+    if llm:
+        try:
+            prompt = (
+                "Extrage între 1 și 4 concepte/entități esențiale din următoarea întrebare, "
+                "la forma de dicționar (nominativ singular). Returnează STRICT conceptele "
+                "sub forma unei liste separate prin virgulă, fără nicio altă explicație sau formatare.\n"
+                f"Întrebare: {question}"
+            )
+            resp = await llm.ainvoke([HumanMessage(content=prompt)])
+            content = str(resp.content).strip().lower()
+            words = [w.strip() for w in content.split(',')]
+            extracted = []
+            for w in words:
+                clean_w = "".join(c for c in w if c.isalnum() or c == '-' or c.isspace()).strip()
+                if clean_w and len(clean_w) >= 3:
+                    extracted.append(clean_w)
+            if extracted:
+                return extracted[:4]
+        except Exception:
+            pass
+    return [word.lower() for word in question.split() if len(word) > 4][:3]
+
+async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str, keywords: List[str] = None) -> str:
+    """Caută relații conceptuale în graful de cunoștințe folosind keywords pre-extrase."""
+    if not keywords:
+        return ""
+
     cypher_query = f"""
         SELECT a::text
         FROM cypher('{GRAPH_NAME}', $$
-            MATCH (n:Entity)-[r]->(m:Entity)
+            MATCH (n:Entity)-[r]-(m:Entity)
             WHERE n.course_id = '{course_id}'
-            AND (toLower(n.label) CONTAINS toLower($keyword) OR toLower(m.label) CONTAINS toLower($keyword))
-            RETURN {{source: n.id, relation: type(r), target: m.id}}
+            AND (
+                any(k IN $keywords WHERE toLower(n.id) CONTAINS toLower(k)) OR 
+                any(k IN $keywords WHERE toLower(m.id) CONTAINS toLower(k)) OR 
+                any(k IN $keywords WHERE toLower(n.label) CONTAINS toLower(k)) OR 
+                any(k IN $keywords WHERE toLower(m.label) CONTAINS toLower(k))
+            )
+            RETURN {{source: n.id, relation: r.type, target: m.id}}
         $$, %s) AS (a agtype)
-        LIMIT 10;
+        LIMIT 25;
     """
-    keywords = [word for word in question.split() if len(word) > 4]
-    if not keywords: return ""
-        
+
     graph_results = []
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
-            await cur.execute(cypher_query, (json.dumps({"keyword": keywords[0]}),))
+            await cur.execute(cypher_query, (json.dumps({"keywords": keywords}),))
             rows = await cur.fetchall()
             for row in rows:
                 try:
@@ -36,26 +68,68 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
                     graph_results.append(f"{src} --> {rel} --> {tgt}")
                 except Exception:
                     continue
+                    
+    graph_results = list(dict.fromkeys(graph_results))
+    
     if graph_results:
         return "RELAȚII CONCEPTUALE EXTRASE DIN GRAF:\n" + "\n".join(graph_results)
     return ""
+
+async def rewrite_question_with_context(llm, question: str, chat_history: List[Any]) -> str:
+    """Rescrie întrebarea utilizatorului încorporând contextul conversațional."""
+    if not chat_history:
+        return question
+    
+    history_text = ""
+    for msg in chat_history[-4:]:
+        role = "Student" if isinstance(msg, HumanMessage) else "Asistent"
+        history_text += f"{role}: {msg.content[:300]}\n"
+    
+    prompt = (
+        "Rescrie întrebarea studentului într-o formă autonomă (self-contained) "
+        "care încorporează contextul conversației anterioare. "
+        "Returnează DOAR întrebarea rescrisă, fără explicații.\n\n"
+        f"ISTORIC:\n{history_text}\n"
+        f"ÎNTREBARE CURENTĂ: {question}\n"
+        f"ÎNTREBARE RESCRISĂ:"
+    )
+    try:
+        resp = await llm.ainvoke([HumanMessage(content=prompt)])
+        rewritten = str(resp.content).strip()
+        return rewritten if len(rewritten) > 5 else question
+    except Exception:
+        return question
 
 async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "VertexAIEmbeddings", question: str, course_id: str) -> List[Document]:
     query_embedding = await embeddings_model.aembed_query(question)
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("""
-                SELECT content, metadata 
+                SELECT content, metadata, embedding <=> %s::vector AS distance
                 FROM rag_system.document_chunks 
                 WHERE metadata->>'course_id' = %s 
+                AND metadata->>'is_global_summary' IS DISTINCT FROM 'True'
                 ORDER BY embedding <=> %s::vector 
-                LIMIT 5
-            """, (course_id, str(query_embedding)))
+                LIMIT 20
+            """, (str(query_embedding), course_id, str(query_embedding)))
             rows = await cur.fetchall()
-            return [Document(page_content=row[0], metadata=row[1]) for row in rows]
+            return [
+                Document(page_content=row[0], metadata=row[1]) 
+                for row in rows 
+                if row[2] < 0.35 and len(row[0].strip()) > 50
+            ]
 
+
+_global_summary_cache = {}  # course_id: (timestamp, list_of_docs)
+CACHE_TTL = 300  # 5 minute expirare
 
 async def get_global_summary(pool: AsyncConnectionPool, course_id: str) -> List[Document]:
+    current_time = time.time()
+    if course_id in _global_summary_cache:
+        cached_time, cached_result = _global_summary_cache[course_id]
+        if current_time - cached_time < CACHE_TTL:
+            return cached_result
+
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("""
@@ -63,10 +137,12 @@ async def get_global_summary(pool: AsyncConnectionPool, course_id: str) -> List[
                 FROM rag_system.document_chunks 
                 WHERE metadata->>'course_id' = %s 
                 AND metadata->>'is_global_summary' = 'True'
-                LIMIT 1
             """, (course_id,))
             rows = await cur.fetchall()
-            return [Document(page_content=row[0], metadata=row[1]) for row in rows]
+            result = [Document(page_content=row[0], metadata=row[1]) for row in rows]
+            if result:
+                _global_summary_cache[course_id] = (current_time, result)
+            return result
 
 async def get_recent_history(pool: AsyncConnectionPool, session_id: str) -> List[Any]:
     async with pool.connection() as conn:
@@ -111,14 +187,22 @@ async def sse_interaction_generator(
     combined_id = f"{user_id}_{course_id}"
     session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, combined_id)) 
 
-    
-    task_vector = asyncio.create_task(get_vector_context(pool, embeddings_model, question, course_id))
-    task_graph = asyncio.create_task(get_graph_context(pool, question, course_id))
-    task_history = asyncio.create_task(get_recent_history(pool, session_id))
+    # 1. Preia istoricul (sincron, rapid) pentru query rewriting
+    chat_context = await get_recent_history(pool, session_id)
+
+    # 2. Paralelizare: rescrie întrebarea ȘI extrage keywords SIMULTAN (economie ~1s)
+    search_query, graph_keywords = await asyncio.gather(
+        rewrite_question_with_context(llm, question, chat_context),
+        extract_graph_keywords(llm, question)
+    )
+
+    # 3. Retrieval paralel cu query-ul rescris + keywords pre-extrase
+    task_vector = asyncio.create_task(get_vector_context(pool, embeddings_model, search_query, course_id))
+    task_graph = asyncio.create_task(get_graph_context(pool, search_query, course_id, keywords=graph_keywords))
     task_summary = asyncio.create_task(get_global_summary(pool, course_id))
 
-    vector_results, graph_text, chat_context, summary_results = await asyncio.gather(
-        task_vector, task_graph, task_history, task_summary
+    vector_results, graph_text, summary_results = await asyncio.gather(
+        task_vector, task_graph, task_summary
     )
     
     citations_collection = []
@@ -128,16 +212,17 @@ async def sse_interaction_generator(
 
     
     if summary_results:
-        summary_doc = summary_results[0]
-        hybrid_knowledge_body += f"--- REZUMAT GLOBAL CURS (VIZIUNE DE ANSAMBLU) ---\nSURSA [{current_source_idx}]:\n{summary_doc.page_content}\n\n"
-        citations_collection.append({
-            "id": current_source_idx,
-            "source_file": summary_doc.metadata.get("source_file", "Rezumat Global"), 
-            "header": summary_doc.metadata.get("header", "Viziune de Ansamblu"), 
-            "course_id": course_id,
-            "text_extras": re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', summary_doc.page_content, flags=re.DOTALL | re.IGNORECASE)
-        })
-        current_source_idx += 1
+        hybrid_knowledge_body += "--- REZUMAT GLOBAL CURS (VIZIUNE DE ANSAMBLU) ---\n"
+        for summary_doc in summary_results:
+            hybrid_knowledge_body += f"SURSA [{current_source_idx}]:\n{summary_doc.page_content}\n\n"
+            citations_collection.append({
+                "id": current_source_idx,
+                "source_file": summary_doc.metadata.get("source_file", "Rezumat Global"), 
+                "header": summary_doc.metadata.get("header", "Viziune de Ansamblu"), 
+                "course_id": course_id,
+                "text_extras": re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', summary_doc.page_content, flags=re.DOTALL | re.IGNORECASE)
+            })
+            current_source_idx += 1
 
     
     if vector_results:
@@ -203,7 +288,10 @@ async def sse_interaction_generator(
         yield "event: done\ndata: {}\n\n"
         
     except Exception as e:
-        yield f"event: error\ndata: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+        error_msg = str(e)
+        if "429" in error_msg or "quota" in error_msg.lower():
+            error_msg = "Sistemul AI este foarte solicitat momentan (Rate Limit). Te rugăm să încerci din nou în câteva secunde."
+        yield f"event: error\ndata: {json.dumps({'error': error_msg}, ensure_ascii=False)}\n\n"
     finally:
         if full_ai_response.strip() and not await request_obj.is_disconnected():
             asyncio.create_task(persist_chat_interaction(pool, session_id, question, full_ai_response, filtered_citations))

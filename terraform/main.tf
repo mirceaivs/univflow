@@ -9,7 +9,7 @@ resource "google_project_service" "apis" {
     "secretmanager.googleapis.com",
     "iap.googleapis.com"
   ])
-  service = each.value
+  service            = each.value
   disable_on_destroy = false
 }
 
@@ -24,9 +24,9 @@ resource "google_artifact_registry_repository" "docker_repo" {
 
 # 1. Bucket Privat (Ingestie)
 resource "google_storage_bucket" "ingestion_bucket" {
-  name          = "univflow-bucket"
-  location      = var.region
-  force_destroy = false
+  name                        = "univflow-bucket"
+  location                    = var.region
+  force_destroy               = false
   uniform_bucket_level_access = true
 
 
@@ -37,9 +37,9 @@ resource "google_storage_bucket" "ingestion_bucket" {
 
 # 2. Bucket Public (Diagrame)
 resource "google_storage_bucket" "public_diagrams_bucket" {
-  name          = "univflow-public-diagrams-56183bb6"
-  location      = var.region
-  force_destroy = false
+  name                        = "univflow-public-diagrams-56183bb6"
+  location                    = var.region
+  force_destroy               = false
   uniform_bucket_level_access = true
 
   soft_delete_policy {
