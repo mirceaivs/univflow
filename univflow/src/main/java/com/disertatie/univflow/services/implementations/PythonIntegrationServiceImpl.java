@@ -120,59 +120,60 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
     @Override
     public void triggerStop(String email, String courseId) {
         stopSignals.put(email + "|" + courseId, true);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Id", email);
+            headers.set("X-Course-Id", courseId);
+            headers.set("X-Internal-Service-Key", internalApiKey);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            cleanRestTemplate.exchange(
+                    askServiceUrl + "/api/ask/stop",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+            log.info("Semnal de oprire trimis cu succes către askService pentru utilizatorul {} și cursul {}", email, courseId);
+        } catch (Exception e) {
+            log.error("Eroare la trimiterea semnalului de oprire către askService: {}", e.getMessage());
+        }
     }
 
     @Override
-    public ResponseEntity<StreamingResponseBody> askAiQuestionStream(String question, String courseId, boolean reasoningEnabled) {
+    public ResponseEntity<String> askAiQuestion(String question, String courseId, boolean reasoningEnabled) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         String signalKey = email + "|" + courseId;
         stopSignals.put(signalKey, false);
+
         Map<String, Object> payload = Map.of(
             "question", question,
             "reasoning_enabled", reasoningEnabled
         );
 
-        StreamingResponseBody responseBody = outputStream -> {
-            if (Boolean.TRUE.equals(stopSignals.get(signalKey))) return;
-            try {
-                this.webClient.post()
-                        .uri("/api/ask/stream")
-                        .header("X-Course-Id", courseId)
-                        .header("X-User-Id", email)
-                        .header("X-Internal-Service-Key", internalApiKey)
-                        .bodyValue(payload)
-                        .accept(MediaType.TEXT_EVENT_STREAM)
-                        .retrieve()
-                        .bodyToFlux(org.springframework.core.io.buffer.DataBuffer.class)
-                        .doOnNext(dataBuffer -> {
-                            if (Boolean.TRUE.equals(stopSignals.get(signalKey))) {
-                                throw new RuntimeException("Stream stopped by user");
-                            }
-                            try {
-                                byte[] bytes = new byte[dataBuffer.readableByteCount()];
-                                dataBuffer.read(bytes);
-                                outputStream.write(bytes);
-                                outputStream.flush();
-                            } catch (IOException e) {
-                                throw new RuntimeException("Error writing to output stream", e);
-                            } finally {
-                                org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
-                            }
-                        })
-                        .doOnError(throwable -> log.error("Error in WebClient stream: {}", throwable.getMessage()))
-                        .blockLast();
-            } catch (Exception e) {
-                log.error("Critical error in AI Stream", e);
-            } finally {
-                stopSignals.remove(signalKey);
-            }
-        };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Course-Id", courseId);
+        headers.set("X-User-Id", email);
+        headers.set("X-Internal-Service-Key", internalApiKey);
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.TEXT_EVENT_STREAM)
-                .header("X-Accel-Buffering", "no")
-                .header("Cache-Control", "no-cache")
-                .body(responseBody);
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(payload, headers);
+
+        try {
+            ResponseEntity<String> response = streamingRestTemplate.postForEntity(
+                    askServiceUrl + "/api/ask",
+                    requestEntity,
+                    String.class
+            );
+            return ResponseEntity.status(response.getStatusCode())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(response.getBody());
+        } catch (Exception e) {
+            log.error("Critical error in AI request", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"error\": \"Eroare la procesarea cererii către AI: " + e.getMessage() + "\"}");
+        } finally {
+            stopSignals.remove(signalKey);
+        }
     }
 
     

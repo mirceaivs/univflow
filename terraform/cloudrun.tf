@@ -221,6 +221,7 @@ resource "google_cloud_run_v2_service" "ask_service" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
+    max_instance_request_concurrency = 80
     vpc_access {
       egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {

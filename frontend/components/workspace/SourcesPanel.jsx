@@ -14,10 +14,10 @@ const cleanRawText = (rawText) => {
   text = text.replace(/Diagramă/gi, "");
 
   
-  text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");
+  text = text.replace(/\n\s*#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References)[\s\S]*/i, "");
 
   
-  text = text.replace(/\|\s+\|/g, "|\n|");
+  text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");
 
   
   text = text.replace(/([^\n|])\s+(\|[^|\n]+\|)/g, (match, p1, p2, offset) => {

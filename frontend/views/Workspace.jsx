@@ -94,6 +94,25 @@ export const WorkspaceView = ({
   }, [courseDocuments.length, navigateToGenerateTest, showNotification]);
 
   
+  const rightPanelRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (rightPanelState !== "sources" && rightPanelState !== "document") {
+        return;
+      }
+      if (rightPanelRef.current && rightPanelRef.current.contains(event.target)) {
+        return;
+      }
+      setRightPanelState("studio");
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [rightPanelState, setRightPanelState]);
+
   const [sourcesPanelWidth, setSourcesPanelWidth] = useState(() => {
     const saved = localStorage.getItem("rag_sources_panel_width");
     if (saved) return parseInt(saved);
@@ -213,6 +232,7 @@ export const WorkspaceView = ({
                 chatInput={chat.chatInput}
                 setChatInput={chat.setChatInput}
                 handleSendMessage={chat.handleSendMessage}
+                stopGeneration={chat.stopGeneration}
                 citations={chat.citations}
                 activeSources={workspace.activeSources}
                 focusedSourceId={workspace.focusedSourceId}
@@ -229,7 +249,7 @@ export const WorkspaceView = ({
           </div>
         </div>
 
-        <div className="flex h-full shrink-0 z-10">
+        <div ref={rightPanelRef} className="flex h-full shrink-0 z-10">
           {}
           <div
             className={`transition-all duration-300 ease-in-out overflow-hidden flex flex-col relative bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 ${

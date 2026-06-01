@@ -16,6 +16,7 @@ export function useChat({ courseId } = {}) {
 
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
+  const activeRequestRef = useRef(null);
 
   
   const scrollToBottom = useCallback(() => {
@@ -85,113 +86,36 @@ export function useChat({ courseId } = {}) {
     }
   }, [isLoadingHistory, hasMore, courseId, page, loadHistory]);
 
-  const streamRawTextAnswer = useCallback(async ({ question, ctxCourseId, isReasoningEnabled }) => {
+  const fetchRawTextAnswer = useCallback(async ({ question, ctxCourseId, isReasoningEnabled }) => {
     const aiMsgId = `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setMessages(prev => [...prev, { id: aiMsgId, role: 'ai', text: '', isStreaming: true }]);
 
     const controller = new AbortController();
     abortRef.current = controller;
+    activeRequestRef.current = { question, courseId: ctxCourseId, reasoningEnabled: isReasoningEnabled };
 
     try {
-      const getHeaders = () => {
-        const csrfCookie = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('XSRF-TOKEN='));
-        const csrfToken = csrfCookie ? decodeURIComponent(csrfCookie.split('=')[1]) : '';
-        const headers = { 
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'text/event-stream'
-        };
-        if (csrfToken) headers['X-XSRF-TOKEN'] = csrfToken;
-        return headers;
-      };
-
-      const makeStreamRequest = () => fetch('/api/rag/ask/stream', {
-        method: 'POST',
-        headers: getHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ question, courseId: ctxCourseId, reasoning_enabled: isReasoningEnabled }),
+      const response = await apiClient.post('/rag/ask', {
+        question,
+        courseId: ctxCourseId,
+        reasoning_enabled: isReasoningEnabled
+      }, {
         signal: controller.signal
       });
 
-      let response = await makeStreamRequest();
-
+      const data = response.data;
       
-      if (response.status === 401 || response.status === 403) {
-        try {
-          await apiClient.post('/auth/refresh');
-          response = await makeStreamRequest();
-        } catch (refreshErr) {
-          window.dispatchEvent(new CustomEvent('auth:logout'));
-          throw new Error('Sesiune expirată.');
-        }
+      if (data && data.error) {
+        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: data.error } : m));
+      } else if (data) {
+        const incomingCitations = data.citations || [];
+        setCitations(incomingCitations);
+        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: data.text || '', citations: incomingCitations } : m));
       }
-
-      if (!response.ok) {
-        throw new Error(`Eroare backend: ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let done = false;
-      let buffer = '';
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        
-        if (value) {
-          buffer += decoder.decode(value, { stream: true });
-          const parts = buffer.split('\n\n');
-          buffer = parts.pop(); 
-
-          for (const part of parts) {
-            let eventType = 'message';
-            let dataStr = '';
-
-            const lines = part.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('event:')) {
-                eventType = line.substring(6).trim();
-              } else if (line.startsWith('data:')) {
-                dataStr = line.substring(5).trim();
-              }
-            }
-
-            if (dataStr) {
-              try {
-                const parsed = JSON.parse(dataStr);
-                
-                if (eventType === 'citation' || parsed.citations) {
-                  const incomingCitations = parsed.citations || [];
-                  
-                  setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, citations: incomingCitations } : m));
-                  setCitations(incomingCitations);
-                } else if (eventType === 'error') {
-                  
-                  const errMsg = parsed.error || 'Eroare necunoscută de la server.';
-                  setMessages((prev) =>
-                    prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + `\n\n${errMsg}` } : m))
-                  );
-                } else if (eventType === 'message' || !eventType) {
-                  if (parsed.text) {
-                    setMessages((prev) => 
-                      prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + parsed.text } : m))
-                    );
-                  }
-                }
-              } catch (e) {
-                console.error("Eroare la parsarea chunk-ului JSON:", e);
-              }
-            }
-          }
-          scrollToBottom();
-        }
-      }
+      scrollToBottom();
     } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error("Eroare în timpul stream-ului:", error);
+      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+        console.error("Eroare în timpul preluării răspunsului:", error);
         setMessages((prev) => 
           prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + "\n\n[Eroare de conexiune la server]" } : m))
         );
@@ -224,7 +148,7 @@ export function useChat({ courseId } = {}) {
     setTimeout(scrollToBottom, 50);
 
     try {
-      await streamRawTextAnswer({ question, ctxCourseId: courseId, isReasoningEnabled });
+      await fetchRawTextAnswer({ question, ctxCourseId: courseId, isReasoningEnabled });
     } catch {
       setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'ai', text: 'Eroare la generare.', isStreaming: false }]);
     } finally {
@@ -235,6 +159,9 @@ export function useChat({ courseId } = {}) {
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+
+    setIsTyping(false);
+
     setMessages((prev) => {
       const lastMsg = prev[prev.length - 1];
       if (lastMsg && lastMsg.isStreaming) {
@@ -242,8 +169,25 @@ export function useChat({ courseId } = {}) {
       }
       return prev;
     });
-    setIsTyping(false);
-  }, []);
+
+    if (courseId) {
+      const payload = { courseId };
+      if (activeRequestRef.current) {
+        payload.question = activeRequestRef.current.question;
+        payload.reasoning_enabled = activeRequestRef.current.reasoningEnabled;
+        payload.originalBody = JSON.stringify({
+          question: activeRequestRef.current.question,
+          courseId: activeRequestRef.current.courseId,
+          reasoning_enabled: activeRequestRef.current.reasoningEnabled
+        });
+      }
+      apiClient.post('/rag/stop', payload).catch((err) => {
+        console.error("[useChat] Eroare la apelarea /rag/stop în background:", err);
+      });
+    }
+
+    activeRequestRef.current = null;
+  }, [courseId]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

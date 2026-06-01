@@ -8,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -30,8 +30,9 @@ public class RagController {
         this.idempotencyRepository = idempotencyRepository;
     }
 
-    @PostMapping(value = "/ask/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public ResponseEntity<StreamingResponseBody> askQuestion(
+    @Idempotent(seconds = 300)
+    @PostMapping(value = "/ask", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> askQuestion(
             @RequestBody Map<String, Object> payload) { 
 
         String question = (String) payload.get("question");
@@ -46,7 +47,7 @@ public class RagController {
             throw new IllegalArgumentException("Întrebarea și id-ul cursului sunt obligatorii.");
         }
 
-        return pythonIntegrationService.askAiQuestionStream(question, courseId, reasoningEnabled);
+        return pythonIntegrationService.askAiQuestion(question, courseId, reasoningEnabled);
     }
 
     @PostMapping("/stop")
@@ -59,9 +60,14 @@ public class RagController {
         pythonIntegrationService.triggerStop(email, courseId);
 
         try {
-            String question = payload.get("question");
-            String simulatedBody = String.format("{\"question\":\"%s\"}", question);
-            String hashToCancel = generateHash(email, "POST", "/rag/ask/stream", simulatedBody);
+            String hashToCancel;
+            if (payload.containsKey("originalBody")) {
+                hashToCancel = generateHash(email, "POST", "/rag/ask", payload.get("originalBody"));
+            } else {
+                String question = payload.get("question");
+                String simulatedBody = String.format("{\"question\":\"%s\"}", question);
+                hashToCancel = generateHash(email, "POST", "/rag/ask", simulatedBody);
+            }
             idempotencyRepository.deleteById(hashToCancel);
 
             return ResponseEntity.ok("Generare oprită și lock eliberat.");

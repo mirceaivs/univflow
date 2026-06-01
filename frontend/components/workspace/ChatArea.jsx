@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
-import { Sparkles, ArrowUp, Loader2, X, FileText, BrainCircuit } from "lucide-react";
+import { Sparkles, ArrowUp, Loader2, X, FileText, BrainCircuit, Square } from "lucide-react";
 import { Badge } from "../ui.jsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -78,6 +78,7 @@ export const ChatArea = ({
   chatInput,
   setChatInput,
   handleSendMessage,
+  stopGeneration,
   citations,
   activeSources,
   focusedSourceId,
@@ -146,7 +147,7 @@ export const ChatArea = ({
       )}
 
       <div
-        className={`flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-6 ${
+        className={`flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-6 pb-36 ${
           isProcessing
             ? "opacity-40 pointer-events-none pt-20 transition-all duration-300"
             : ""
@@ -245,13 +246,14 @@ export const ChatArea = ({
 
                                   return (
                                     <span
-                                      onClick={() =>
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         openSources(
                                           msg.citations || citations,
                                           sourceId,
                                           msg.id 
-                                        )
-                                      }
+                                        );
+                                      }}
                                       className={`inline-flex items-center justify-center min-w-[24px] px-2 py-0.5 mx-0.5 text-[11px] font-bold rounded-full cursor-pointer select-none transition-all duration-200 ${
                                         isFocused
                                           ? "bg-primary-800 text-white ring-2 ring-primary-300 ring-offset-1 scale-105 shadow-md"
@@ -278,12 +280,13 @@ export const ChatArea = ({
                                 const matchedDoc = documents?.find(doc => doc.jobId === jobId);
 
                                 return (
-                                  <div 
-                                    onClick={() => {
-                                      if (matchedDoc && openDocumentPanel) {
-                                        openDocumentPanel(matchedDoc);
-                                      }
-                                    }}
+                                    <div 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (matchedDoc && openDocumentPanel) {
+                                          openDocumentPanel(matchedDoc);
+                                        }
+                                      }}
                                     className="my-3 max-w-sm rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm hover:shadow-md hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-all duration-200 group flex flex-col gap-2"
                                   >
                                     <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80">
@@ -327,7 +330,7 @@ export const ChatArea = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="pb-6 px-4 md:px-8">
+      <div className="absolute bottom-0 left-0 right-0 bg-slate-50/60 dark:bg-slate-950/60 backdrop-blur-md pt-4 pb-6 px-4 md:px-8 z-10">
         <div className="max-w-4xl mx-auto relative flex flex-col gap-2">
           
           <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-transparent transition-all flex flex-col p-1.5">
@@ -345,7 +348,7 @@ export const ChatArea = ({
               disabled={isTyping || isProcessing}
             />
             
-            <div className="flex items-center justify-between px-3 pb-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/40">
+            <div className="flex items-center justify-between px-3 pb-1.5 pt-1.5">
               <button
                 onClick={() => setIsReasoningEnabled(!isReasoningEnabled)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 outline-none focus:outline-none border border-transparent ${
@@ -360,13 +363,23 @@ export const ChatArea = ({
                 Deep Reasoning
               </button>
 
-              <button
-                className="p-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-md shrink-0 flex items-center justify-center border-none outline-none focus:outline-none"
-                onClick={() => handleSendMessage()}
-                disabled={!chatInput.trim() || isTyping || isProcessing}
-              >
-                <ArrowUp className="w-4 h-4 text-white" />
-              </button>
+              {isTyping ? (
+                <button
+                  className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-transform active:scale-95 shadow-md shrink-0 flex items-center justify-center border-none outline-none focus:outline-none"
+                  onClick={() => stopGeneration && stopGeneration()}
+                  title="Oprește generarea"
+                >
+                  <Square className="w-4 h-4 text-white fill-white" />
+                </button>
+              ) : (
+                <button
+                  className="p-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 shadow-md shrink-0 flex items-center justify-center border-none outline-none focus:outline-none"
+                  onClick={() => handleSendMessage()}
+                  disabled={!chatInput.trim() || isProcessing}
+                >
+                  <ArrowUp className="w-4 h-4 text-white" />
+                </button>
+              )}
             </div>
           </div>
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-2 font-medium">

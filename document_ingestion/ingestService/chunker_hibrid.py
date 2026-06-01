@@ -245,7 +245,7 @@ class MultimodalSemanticPipeline:
         
         
 
-        bib_pattern = re.compile(r'\n#{1,4}\s*(Bibliografie|Referințe|References)[\s\S]*', re.IGNORECASE)
+        bib_pattern = re.compile(r'\n\s*#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References)[\s\S]*', re.IGNORECASE)
         full_document_text = re.sub(bib_pattern, '', full_document_text)
 
         

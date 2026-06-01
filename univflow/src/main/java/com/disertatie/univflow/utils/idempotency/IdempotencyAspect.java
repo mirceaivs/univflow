@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -76,11 +77,36 @@ public class IdempotencyAspect {
 
         try {
             Object result = joinPoint.proceed();
+
+            if (result instanceof ResponseEntity<?> responseEntity && responseEntity.getBody() instanceof StreamingResponseBody originalStream) {
+                StreamingResponseBody wrappedStream = outputStream -> {
+                    try {
+                        originalStream.writeTo(outputStream);
+                    } finally {
+                        try {
+                            repository.deleteById(hash);
+                            repository.flush();
+                        } catch (Exception e) {
+                            // Ignored (e.g. already deleted by stop endpoint)
+                        }
+                    }
+                };
+
+                return ResponseEntity.status(responseEntity.getStatusCode())
+                        .headers(responseEntity.getHeaders())
+                        .body(wrappedStream);
+            }
+
             Object bodyToSave = (result instanceof ResponseEntity<?> re) ? re.getBody() : result;
             updateStatus(hash, IdempotencyRecord.ProcessState.COMPLETED, objectMapper.writeValueAsString(bodyToSave));
             return result;
         } catch (Throwable ex) {
-            repository.deleteById(hash);
+            try {
+                repository.deleteById(hash);
+                repository.flush();
+            } catch (Exception e) {
+                // Ignore
+            }
             throw ex;
         }
     }

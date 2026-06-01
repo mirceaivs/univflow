@@ -6,7 +6,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from deps import get_embeddings_model, get_llm
 from config import INTERNAL_API_KEY
 from schemas import AskRequest, QuizRequest, Quiz
-from services import sse_interaction_generator, clean_text_noise, get_vector_context, get_global_summary
+from services import generate_interaction, clean_text_noise, get_vector_context, get_global_summary
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,7 +19,26 @@ def verify_internal_access(x_internal_service_key: str = Header(...)):
 def health_check(_: None = Depends(verify_internal_access)):
     return {"status": "ok"}
 
-@router.post("/api/ask/stream")
+@router.post("/api/ask/stop")
+async def stop_ask_query(
+    request: Request,
+    x_user_id: str = Header(..., description="ID student"),
+    x_course_id: str = Header(..., description="ID curs"),
+    _: None = Depends(verify_internal_access)
+):
+    combined_id = f"{x_user_id}_{x_course_id}"
+    task = request.app.state.active_tasks.get(combined_id)
+    if task:
+        try:
+            task.cancel()
+            logger.info(f"Task cancelat cu succes pentru combined_id: {combined_id}")
+            return {"status": "cancelled"}
+        except Exception as e:
+            logger.error(f"Eroare la anularea task-ului pentru {combined_id}: {str(e)}")
+            return {"status": "error", "detail": str(e)}
+    return {"status": "not_running"}
+
+@router.post("/api/ask")
 async def handle_ask_query(
     request: Request,
     payload: AskRequest,
@@ -31,20 +50,22 @@ async def handle_ask_query(
 ):
 
     if not payload.question.strip(): raise HTTPException(status_code=400, detail="Întrebare goală.")
-    return StreamingResponse(
-        sse_interaction_generator(
-            request.app.state.db_pool,
-            embeddings_model,
-            llm,
-            request,
-            payload.question,
-            x_user_id,
-            x_course_id,
-            payload.reasoning_enabled
-        ),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    
+    result = await generate_interaction(
+        request.app.state.db_pool,
+        embeddings_model,
+        llm,
+        request,
+        payload.question,
+        x_user_id,
+        x_course_id,
+        payload.reasoning_enabled
     )
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+        
+    return result
 
 @router.get("/api/ask/history/{course_id}")
 async def get_paginated_history(

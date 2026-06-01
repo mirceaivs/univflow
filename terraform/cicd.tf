@@ -161,7 +161,7 @@ resource "google_cloudbuild_trigger" "ask_service_trigger" {
     step {
       name       = "gcr.io/google.com/cloudsdktool/cloud-sdk"
       entrypoint = "gcloud"
-      args       = ["run", "deploy", "ask-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ask-service:latest", "--region", var.region]
+      args       = ["run", "deploy", "ask-service", "--image", "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/ask-service:latest", "--region", var.region, "--concurrency", "80"]
     }
     options {
       logging = "CLOUD_LOGGING_ONLY"

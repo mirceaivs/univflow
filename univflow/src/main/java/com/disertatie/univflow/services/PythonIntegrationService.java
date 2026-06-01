@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface PythonIntegrationService {
-    ResponseEntity<StreamingResponseBody> askAiQuestionStream(String question, String courseId, boolean reasoningEnabled);
+    ResponseEntity<String> askAiQuestion(String question, String courseId, boolean reasoningEnabled);
     IngestResponseDTO uploadDocumentToPython(String courseId, List<MultipartFile> files);
     Map<String, String> checkAllPythonHealth();
     void triggerStop(String email, String courseId);

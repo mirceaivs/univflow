@@ -56,7 +56,7 @@ async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id:
         """
     else:
         conds = [
-            f"toLower(n.id) CONTAINS '{k}' OR toLower(m.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}' OR toLower(m.label) CONTAINS '{k}'"
+            f"toLower(n.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}'"
             for k in clean_keywords
         ]
         cond_str = " OR ".join(conds)
@@ -199,7 +199,7 @@ async def persist_chat_interaction(pool: AsyncConnectionPool, session_id: str, u
         ai_msg = AIMessage(content=ai_a, additional_kwargs={"citations": citations})
         await history_store.aadd_messages([human_msg, ai_msg])
 
-async def sse_interaction_generator(
+async def generate_interaction(
     db_pool: AsyncConnectionPool,
     embeddings_model: "VertexAIEmbeddings",
     llm: "ChatGoogleGenerativeAI",
@@ -208,21 +208,28 @@ async def sse_interaction_generator(
     user_id: str,
     course_id: str,
     reasoning_enabled: bool = False
-) -> AsyncGenerator[str, None]:
+) -> dict:
     pool = db_pool
     
+    current_task = asyncio.current_task()
     combined_id = f"{user_id}_{course_id}"
+    if hasattr(request_obj.app.state, "active_tasks"):
+        request_obj.app.state.active_tasks[combined_id] = current_task
+        
     session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, combined_id)) 
 
     chat_context = await get_recent_history(pool, session_id)
 
-    search_query, graph_keywords = await asyncio.gather(
-        rewrite_question_with_context(llm, question, chat_context),
-        extract_graph_keywords(llm, question)
-    )
+    async def get_vector_pipeline():
+        rewritten_q = await rewrite_question_with_context(llm, question, chat_context)
+        return await get_vector_context(pool, embeddings_model, rewritten_q, course_id)
 
-    task_vector = asyncio.create_task(get_vector_context(pool, embeddings_model, search_query, course_id))
-    task_graph = asyncio.create_task(get_graph_context(pool, search_query, course_id, keywords=graph_keywords, reasoning_enabled=reasoning_enabled))
+    async def get_graph_pipeline():
+        g_keywords = await extract_graph_keywords(llm, question)
+        return await get_graph_context(pool, question, course_id, keywords=g_keywords, reasoning_enabled=reasoning_enabled)
+
+    task_vector = asyncio.create_task(get_vector_pipeline())
+    task_graph = asyncio.create_task(get_graph_pipeline())
     task_summary = asyncio.create_task(get_global_summary(pool, course_id))
 
     vector_results, graph_text, summary_results = await asyncio.gather(
@@ -280,20 +287,9 @@ async def sse_interaction_generator(
     full_ai_response = ""
 
     try:
-        async for chunk in chain.astream({"context": hybrid_knowledge_body, "question": question, "chat_history": chat_context}):
-            if await request_obj.is_disconnected(): break
-            
-            chunk_text = ""
-            if isinstance(chunk.content, list):
-                for item in chunk.content:
-                    if isinstance(item, dict) and "text" in item: chunk_text += item["text"]
-                    elif isinstance(item, str): chunk_text += item
-            else:
-                chunk_text = str(chunk.content)
-
-            full_ai_response += chunk_text
-            yield f"data: {json.dumps({'text': chunk_text}, ensure_ascii=False)}\n\n"
-
+        response = await chain.ainvoke({"context": hybrid_knowledge_body, "question": question, "chat_history": chat_context})
+        
+        full_ai_response = str(response.content)
         
         used_ids = set()
         citation_matches = re.findall(r'\[(?:SURSA\s*)?\d+(?:[\s,]*(?:SURSA\s*)?\d+)*\]', full_ai_response, re.IGNORECASE)
@@ -307,16 +303,17 @@ async def sse_interaction_generator(
         else:
             filtered_citations = []
 
-        
-        yield f"event: citation\ndata: {json.dumps({'citations': filtered_citations}, ensure_ascii=False)}\n\n"
-        yield "event: done\ndata: {}\n\n"
+        return {"text": full_ai_response, "citations": filtered_citations}
         
     except Exception as e:
         error_msg = str(e)
         if "429" in error_msg or "quota" in error_msg.lower():
             error_msg = "Sistemul AI este foarte solicitat momentan (Rate Limit). Te rugăm să încerci din nou în câteva secunde."
-        yield f"event: error\ndata: {json.dumps({'error': error_msg}, ensure_ascii=False)}\n\n"
+        return {"error": error_msg}
     finally:
+        if hasattr(request_obj.app.state, "active_tasks") and request_obj.app.state.active_tasks.get(combined_id) == current_task:
+            request_obj.app.state.active_tasks.pop(combined_id, None)
+
         if full_ai_response.strip() and not await request_obj.is_disconnected():
             asyncio.create_task(persist_chat_interaction(pool, session_id, question, full_ai_response, filtered_citations))
 

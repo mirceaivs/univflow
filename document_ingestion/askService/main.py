@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     )
     await pool.open()
     app.state.db_pool = pool
+    app.state.active_tasks = {}
 
     yield 
     await app.state.db_pool.close()
