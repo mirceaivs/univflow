@@ -147,13 +147,14 @@ export const ChatArea = ({
       )}
 
       <div
-        className={`flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-6 pb-36 ${
+        className={`flex-1 overflow-y-auto custom-scrollbar pt-4 px-4 md:pt-8 md:px-8 pb-[240px] ${
           isProcessing
             ? "opacity-40 pointer-events-none pt-20 transition-all duration-300"
             : ""
         }`}
       >
-        {isLoadingHistory ? (
+        <div className="max-w-4xl mx-auto w-full flex flex-col space-y-6">
+          {isLoadingHistory ? (
           <div className="h-full flex flex-col items-center justify-center text-center py-20 gap-4">
             <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-slate-500 dark:text-slate-400 font-medium">
@@ -327,6 +328,7 @@ export const ChatArea = ({
             })}
           </>
         )}
+        </div>
         <div ref={messagesEndRef} />
       </div>
 

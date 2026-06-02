@@ -38,7 +38,7 @@ services:
       - PYTHON_SERVICE_BASE_URL=http://ingest-service:8080
       - PYTHON_SERVICE_ASK_URL=http://ask-service:8080
       - PYTHON_SERVICE_INGEST_URL=http://ingest-service:8080
-      - "MAIL_PASSWORD=vlyc iegd gwzj liqs"
+      - "MAIL_PASSWORD=${MAIL_PASSWORD}"
     depends_on:
       db:
         condition: service_healthy

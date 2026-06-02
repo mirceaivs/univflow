@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Request, Header, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from deps import get_embeddings_model, get_llm
+from deps import get_embeddings_model, get_llm, get_pro_llm
 from config import INTERNAL_API_KEY
 from schemas import AskRequest, QuizRequest, Quiz
 from services import generate_interaction, clean_text_noise, get_vector_context, get_global_summary
@@ -50,6 +50,9 @@ async def handle_ask_query(
 ):
 
     if not payload.question.strip(): raise HTTPException(status_code=400, detail="Întrebare goală.")
+    
+    if payload.reasoning_enabled:
+        llm = get_pro_llm()
     
     result = await generate_interaction(
         request.app.state.db_pool,
@@ -145,17 +148,16 @@ async def generate_quiz(
     all_docs = []
     
     if is_general_quiz:
-        
         summary_docs = await get_global_summary(pool, course_id)
-        
-        
-        vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id)
-        
-        
+        vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id, threshold=0.5)
         all_docs = summary_docs + vector_docs
     else:
-        
-        all_docs = await get_vector_context(pool, embeddings_model, f"informații esențiale despre {payload.topic}", course_id)
+        all_docs = await get_vector_context(pool, embeddings_model, f"informații esențiale despre {payload.topic}", course_id, threshold=0.5)
+        if not all_docs:
+            logger.info(f"No specific chunks found for topic '{payload.topic}'. Falling back to general summary and concepts.")
+            summary_docs = await get_global_summary(pool, course_id)
+            vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id, threshold=0.5)
+            all_docs = summary_docs + vector_docs
 
     if not all_docs:
         raise HTTPException(status_code=404, detail="Nu am găsit suficiente informații în curs.")

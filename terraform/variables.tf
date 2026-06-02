@@ -1,12 +1,10 @@
 variable "project_id" {
   type        = string
   description = "Project ID-ul implicit al aplicației UnivFlow."
-  default     = "project-56183bb6-373c-4ea0-b1b"
 }
 variable "project_number" {
   type        = string
   description = "Project Number-ul utilizat pentru generarea agenților de servicii."
-  default     = "293609037951"
 }
 variable "region" {
   type        = string

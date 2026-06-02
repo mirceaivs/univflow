@@ -127,7 +127,7 @@ async def rewrite_question_with_context(llm, question: str, chat_history: List[A
     except Exception:
         return question
 
-async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "VertexAIEmbeddings", question: str, course_id: str) -> List[Document]:
+async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "VertexAIEmbeddings", question: str, course_id: str, threshold: float = 0.35) -> List[Document]:
     query_embedding = await embeddings_model.aembed_query(question)
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
@@ -143,7 +143,7 @@ async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "Verte
             return [
                 Document(page_content=row[0], metadata=row[1]) 
                 for row in rows 
-                if row[2] < 0.35 and len(row[0].strip()) > 50
+                if row[2] < threshold and len(row[0].strip()) > 50
             ]
 
 _global_summary_cache = {}

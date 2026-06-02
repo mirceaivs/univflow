@@ -42,3 +42,17 @@ def get_llm():
         max_retries=2
     )
 
+@lru_cache(maxsize=1)
+def get_pro_llm():
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    return ChatGoogleGenerativeAI(
+        model="gemini-3.1-pro-preview",
+        project=PROJECT_ID,
+        location=LOCATION,
+        credentials=get_credentials(),
+        temperature=0.1,
+        streaming=True,
+        max_retries=2
+    )
+
+
