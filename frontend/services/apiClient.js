@@ -31,7 +31,10 @@ const dispatchError = (err) => {
     if (errorData && errorData.error === 'EMAIL_NOT_VERIFIED') {
       return;
     }
-    const message = errorData?.message || errorData?.error || err?.message || 'A apărut o eroare de rețea. Te rugăm să încerci din nou.';
+    let message = errorData?.message || errorData?.error || err?.message || 'A apărut o eroare de rețea. Te rugăm să încerci din nou.';
+    if (message === 'Bad credentials' || message === 'bad credentials') {
+      message = 'Email sau parolă incorectă.';
+    }
     try {
       window.dispatchEvent(new CustomEvent('app:error', { detail: { message } }));
     } catch {}

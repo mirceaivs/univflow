@@ -47,22 +47,22 @@ resource "google_compute_instance" "db_vm" {
     scopes = ["cloud-platform"]
   }
 
-  metadata_startup_script = <<-EOT
-    
+  metadata_startup_script = replace(<<-EOT
+    #!/bin/bash
     export DEBIAN_FRONTEND=noninteractive
 
     apt-get update
     apt-get install -yq git curl
 
-    curl -fsSL https:
+    curl -fsSL https://get.docker.com -o get-docker.sh
     sh get-docker.sh
 
     cd /opt
     if [ ! -d "${var.github_repo}" ]; then
-      git clone https:
+      git clone https://${var.github_token}@github.com/${var.github_owner}/${var.github_repo}.git
     else
       cd ${var.github_repo}
-      git remote set-url origin https:
+      git remote set-url origin https://${var.github_token}@github.com/${var.github_owner}/${var.github_repo}.git
       git pull
       cd ..
     fi
@@ -70,6 +70,7 @@ resource "google_compute_instance" "db_vm" {
     cd ${var.github_repo}/initBazaDeDate
     docker compose up -d
   EOT
+  , "\r", "")
 
   depends_on = [google_project_service.apis]
 }

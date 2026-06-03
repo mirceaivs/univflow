@@ -289,7 +289,20 @@ async def generate_interaction(
     try:
         response = await chain.ainvoke({"context": hybrid_knowledge_body, "question": question, "chat_history": chat_context})
         
-        full_ai_response = str(response.content)
+        if isinstance(response.content, list):
+            text_parts = []
+            for block in response.content:
+                if isinstance(block, dict):
+                    text_parts.append(block.get("text", ""))
+                elif hasattr(block, "text"):
+                    text_parts.append(getattr(block, "text"))
+                elif isinstance(block, str):
+                    text_parts.append(block)
+                else:
+                    text_parts.append(str(block))
+            full_ai_response = "".join(text_parts).strip()
+        else:
+            full_ai_response = str(response.content).strip()
         
         used_ids = set()
         citation_matches = re.findall(r'\[(?:SURSA\s*)?\d+(?:[\s,]*(?:SURSA\s*)?\d+)*\]', full_ai_response, re.IGNORECASE)
