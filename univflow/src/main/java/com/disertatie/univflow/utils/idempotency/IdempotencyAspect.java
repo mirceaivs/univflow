@@ -23,6 +23,8 @@ import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.Optional;
 
+import jakarta.servlet.http.HttpServletRequestWrapper;
+
 @Aspect
 @Component
 public class IdempotencyAspect {
@@ -40,8 +42,23 @@ public class IdempotencyAspect {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
 
         String principal = SecurityContextHolder.getContext().getAuthentication().getName();
-        String payload = (request instanceof CachedBodyHttpServletRequest req)
-                ? new String(req.getCachedBody(), StandardCharsets.UTF_8) : "";
+        
+        CachedBodyHttpServletRequest cachedRequest = null;
+        if (request instanceof CachedBodyHttpServletRequest cbReq) {
+            cachedRequest = cbReq;
+        } else {
+            jakarta.servlet.ServletRequest current = request;
+            while (current instanceof HttpServletRequestWrapper wrapper) {
+                current = wrapper.getRequest();
+                if (current instanceof CachedBodyHttpServletRequest cbReq) {
+                    cachedRequest = cbReq;
+                    break;
+                }
+            }
+        }
+
+        String payload = (cachedRequest != null)
+                ? new String(cachedRequest.getCachedBody(), StandardCharsets.UTF_8) : "";
 
         String hash = generateHash(principal, request.getMethod(), request.getRequestURI(), payload);
 
