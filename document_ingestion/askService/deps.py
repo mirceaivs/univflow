@@ -37,7 +37,7 @@ def get_llm():
         project=PROJECT_ID,
         location=LOCATION,
         credentials=get_credentials(),
-        temperature=0.3,
+        temperature=0.7,
         streaming=True,
         max_retries=2
     )
@@ -50,7 +50,7 @@ def get_pro_llm():
         project=PROJECT_ID,
         location=LOCATION,
         credentials=get_credentials(),
-        temperature=0.3,
+        temperature=0.7,
         streaming=True,
         max_retries=2
     )
