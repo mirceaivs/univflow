@@ -270,16 +270,16 @@ export const SourcesPanel = ({
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    p: ({ children }) => {
+                     p: ({ children }) => {
                       const hasImage = React.Children.toArray(children).some(
                         (child) =>
                           React.isValidElement(child) &&
-                          (child.type === "img" || (child.props && (child.props.src || child.props.href)))
+                          (child.type === "img" || (child.props && typeof child.props.src === "string"))
                       );
                       if (hasImage) {
                         return <div className="my-2 flex flex-col gap-2 items-center w-full">{children}</div>;
                       }
-                      return <p className="mb-4 last:mb-0">{children}</p>;
+                      return <p className="mb-4 last:mb-0 text-left">{children}</p>;
                     },
                     img: ({ src, alt }) => {
                       return (
@@ -294,11 +294,11 @@ export const SourcesPanel = ({
                             matchedMaterial ? "cursor-pointer group/img hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all duration-200" : ""
                           }`}
                         >
-                          <div className="relative w-full rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80 p-2 min-h-[150px] max-h-[520px]">
+                          <div className="relative w-full rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80 p-2 min-h-[150px] max-h-[920px]">
                             <img 
                               src={src} 
                               alt={alt || "Diagramă Curs"} 
-                              className="max-h-[500px] w-auto max-w-full object-contain rounded-md group-hover/img:scale-[1.01] transition-transform duration-200"
+                              className="max-h-[900px] w-auto max-w-full object-contain rounded-md group-hover/img:scale-[1.01] transition-transform duration-200"
                             />
                             {matchedMaterial && (
                               <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center gap-1">

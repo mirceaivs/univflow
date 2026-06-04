@@ -210,10 +210,10 @@ export const ChatArea = ({
                     }`}
                   >
                     <div
-                      className={`rounded-2xl px-5 py-4 text-[15px] leading-relaxed w-full ${
+                      className={`rounded-2xl px-5 py-4 text-[15px] leading-relaxed ${
                         isUser
                           ? "bg-primary-600 text-white font-medium shadow-md shadow-primary-500/10 rounded-tr-none message-user-anim w-auto"
-                          : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim"
+                          : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim w-full"
                       } ${
                         isPlaceholder
                           ? "italic text-slate-400 dark:text-slate-500 select-none animate-pulse transition-all duration-500"
@@ -242,12 +242,12 @@ export const ChatArea = ({
                                 const hasImage = React.Children.toArray(children).some(
                                   (child) =>
                                     React.isValidElement(child) &&
-                                    (child.type === "img" || (child.props && (child.props.src || child.props.href)))
+                                    (child.type === "img" || (child.props && typeof child.props.src === "string"))
                                 );
                                 if (hasImage) {
                                   return <div className="my-2 flex flex-col gap-2 items-center w-full">{children}</div>;
                                 }
-                                return <p className="mb-4 last:mb-0">{children}</p>;
+                                return <p className="mb-4 last:mb-0 text-left">{children}</p>;
                               },
                               a: ({ href, children }) => {
                                 if (href && href.startsWith("citation-")) {
