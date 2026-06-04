@@ -29,8 +29,10 @@ function preprocessMarkdown(text) {
   let processedText = text;
 
   
-  processedText = processedText.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
-  processedText = processedText.replace(/<ai_vision_description>[\s\S]*?<\/ai_vision_description>/gi, "");
+  processedText = processedText.replace(/<ai_vision_description[^>]*>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
+  processedText = processedText.replace(/\*\*Descriere Vizuală\s*\(Generată\s*AI\):\*\*[\s\S]*?(?=(\n\s*#{1,6}|\n\s*\*\*|$))/gi, "");
+  processedText = processedText.replace(/[-*#_]*\s*Start of picture text\s*[-*#_]*/gi, "");
+  processedText = processedText.replace(/[-*#_]*\s*End of picture text\s*[-*#_]*/gi, "");
 
   
   processedText = processedText.replace(/<img[^>]+src=["']([^"']+)["'][^>]*\/?>/gi, "![Diagramă Curs]($1)");
@@ -252,7 +254,7 @@ export const ChatArea = ({
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         openSources(
-                                          msg.citations || citations,
+                                          (msg.citations && msg.citations.length > 0) ? msg.citations : citations,
                                           sourceId,
                                           msg.id 
                                         );
@@ -292,13 +294,13 @@ export const ChatArea = ({
                                           openDocumentPanel(matchedDoc);
                                         }
                                       }}
-                                    className="my-3 max-w-xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm hover:shadow-md hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-all duration-200 group flex flex-col gap-2"
+                                    className="my-3 w-full max-w-3xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm hover:shadow-md hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-all duration-200 group flex flex-col gap-2"
                                   >
                                     <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80">
                                       <img 
                                         src={src} 
                                         alt={alt || "Diagramă Curs"} 
-                                        className="max-h-80 max-w-full object-contain group-hover:scale-[1.02] transition-transform duration-200"
+                                        className="max-h-[450px] max-w-full object-contain group-hover:scale-[1.02] transition-transform duration-200"
                                       />
                                       {matchedDoc && (
                                         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1">

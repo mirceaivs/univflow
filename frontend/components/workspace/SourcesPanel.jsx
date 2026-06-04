@@ -8,8 +8,10 @@ const cleanRawText = (rawText) => {
   if (!rawText) return "Fragment de text indisponibil.";
   let text = rawText;
 
-  text = text.replace(/\*\*Descriere Vizuală \(Generată AI\):\*\*.*?(?=(\n\n|$))/gi, "");
-  text = text.replace(/<ai_vision_description>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
+  text = text.replace(/<ai_vision_description[^>]*>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
+  text = text.replace(/\*\*Descriere Vizuală\s*\(Generată\s*AI\):\*\*[\s\S]*?(?=(\n\s*#{1,6}|\n\s*\*\*|$))/gi, "");
+  text = text.replace(/[-*#_]*\s*Start of picture text\s*[-*#_]*/gi, "");
+  text = text.replace(/[-*#_]*\s*End of picture text\s*[-*#_]*/gi, "");
   text = text.replace(/\[Imagine de referință extrasă din curs\]/gi, "");
   text = text.replace(/Diagramă/gi, "");
 
@@ -163,22 +165,12 @@ export const SourcesPanel = ({
       : null;
     pageNum = pageNumMatch ? pageNumMatch[1] : null;
 
-    const extractedJobId = sourceFile.replace(/\.pdf$/i, "").trim();
-    matchedMaterial = materials?.find(
-      (m) =>
-        String(m.id) === extractedJobId ||
-        String(m.backendId) === extractedJobId
-    );
-
     const isGlobalSummary = sourceFile.toLowerCase() === "rezumat global" || 
                             sourceToRender.header === "Viziune de Ansamblu";
 
     if (isGlobalSummary) {
       finalSourceName = "Rezumat";
       isClickable = false;
-    } else if (matchedMaterial && matchedMaterial.name) {
-      finalSourceName = matchedMaterial.name;
-      isClickable = true;
     } else {
       finalSourceName = sourceFile.replace(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]?/i,
@@ -187,7 +179,35 @@ export const SourcesPanel = ({
       if (!finalSourceName || finalSourceName.toLowerCase() === ".pdf") {
         finalSourceName = "Document Curs";
       }
-      isClickable = false;
+
+      const cleanForCompare = (name) => {
+        if (!name) return "";
+        return name.toLowerCase().replace(/\.(pdf|docx?|pptx?)$/i, "").trim();
+      };
+      const cleanSource = cleanForCompare(finalSourceName);
+
+      matchedMaterial = materials?.find((m) => {
+        const extractedJobId = sourceFile.replace(/\.pdf$/i, "").trim();
+        if (String(m.id) === extractedJobId || String(m.backendId) === extractedJobId) {
+          return true;
+        }
+        const uuidMatch = sourceFile.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+        if (uuidMatch) {
+          const uuid = uuidMatch[1].toLowerCase();
+          if (m.id?.toString().toLowerCase() === uuid || m.backendId?.toString().toLowerCase() === uuid || m.jobId?.toString().toLowerCase() === uuid) {
+            return true;
+          }
+        }
+        const cleanMatName = cleanForCompare(m.name);
+        return cleanMatName && cleanSource && cleanMatName === cleanSource;
+      });
+
+      if (matchedMaterial && matchedMaterial.name) {
+        finalSourceName = matchedMaterial.name;
+        isClickable = true;
+      } else {
+        isClickable = false;
+      }
     }
   }
 
@@ -241,9 +261,57 @@ export const SourcesPanel = ({
               </div>
             </Card>
           ) : (
-            <div className="p-4 text-center text-slate-500 italic border border-slate-200 rounded-md">
-              Sursa referențiată nu a putut fi localizată în fereastra curentă
-              de context hibrid.
+            <div className="flex flex-col space-y-5">
+              <div className="p-4 text-center text-sm font-medium text-slate-500 italic border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/30">
+                Sursa [{focusedSourceId}] nu a putut fi localizată în acest mesaj (posibil o referință inexistentă generată de AI).
+              </div>
+              
+              {displayedSources.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Surse disponibile în acest mesaj:
+                  </p>
+                  <div className="space-y-3">
+                    {displayedSources.map((src) => {
+                      const sourceFile = src.source_file || "Sursă Necunoscută";
+                      const cleanSourceName = sourceFile.replace(
+                        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]?/i,
+                        ""
+                      );
+                      const pageNumMatch = src.header
+                        ? src.header.match(/Pagina\s+(\d+)/i)
+                        : null;
+                      const srcPage = pageNumMatch ? pageNumMatch[1] : null;
+
+                      return (
+                        <Card
+                          key={src.id || src.displayIndex}
+                          className="p-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex flex-col gap-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <div className="w-5 h-5 shrink-0 rounded-full bg-primary-600 text-white flex items-center justify-center text-[11px] font-bold shadow-sm">
+                                {src.displayIndex}
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                {cleanSourceName}
+                              </span>
+                            </div>
+                            {srcPage != null && (
+                              <span className="text-[10px] font-bold shrink-0 text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                                Pag. {srcPage}
+                              </span>
+                            )}
+                          </div>
+                          <div className="border-l-[3px] border-slate-300 dark:border-slate-700 pl-3 py-1 text-[13px] text-slate-600 dark:text-slate-400 line-clamp-3">
+                            {src.text_extras || src.text || ""}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )
         ) : (
