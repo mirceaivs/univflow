@@ -104,6 +104,9 @@ export const WorkspaceView = ({
       if (rightPanelRef.current && rightPanelRef.current.contains(event.target)) {
         return;
       }
+      if (event.target && event.target.closest && event.target.closest('[data-prevent-outside-click="true"]')) {
+        return;
+      }
       setRightPanelState("studio");
     };
 

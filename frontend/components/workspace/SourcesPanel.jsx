@@ -13,13 +13,22 @@ const cleanRawText = (rawText) => {
   text = text.replace(/\[Imagine de referință extrasă din curs\]/gi, "");
   text = text.replace(/Diagramă/gi, "");
 
-  
+  // Normalize bullet symbols parsed as backticked o or ~o
+  text = text.replace(/`\s*~?o\s*`/gi, "\n  - ");
+  text = text.replace(/~\s*o\s*/gi, "\n  - ");
+
+  // Convert inline list items marked with ' - ' after sentence endings into actual list items
+  text = text.replace(/([.?!)]|`)\s*-\s+/g, "$1\n- ");
+
+  // Remove backticks inside table cells (e.g. | `cell` | -> | cell |)
+  text = text.replace(/(\|\s*)`([^`|\n]+)`(\s*(?=\|))/g, "$1$2$3");
+
   text = text.replace(/\n\s*#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References)[\s\S]*/i, "");
 
-  
+  // Fix tables by making sure adjacent table rows have newlines
   text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");
 
-  
+  // Fix tables where text is mixed up before the table header
   text = text.replace(/([^\n|])\s+(\|[^|\n]+\|)/g, (match, p1, p2, offset) => {
     const textBeforeMatch = text.slice(0, offset);
     const lastNewlineIdx = textBeforeMatch.lastIndexOf("\n");
@@ -31,7 +40,7 @@ const cleanRawText = (rawText) => {
     return `${p1}\n\n${p2}`;
   });
 
-  
+  // Fix tables with missing closing pipe
   text = text
     .split("\n")
     .map((line) => {
@@ -43,7 +52,59 @@ const cleanRawText = (rawText) => {
     })
     .join("\n");
 
-  
+  // Flip upside-down markdown tables
+  const lines = text.split("\n");
+  const resultLines = [];
+  let currentTable = [];
+
+  const isTableLine = (line) => {
+    const trimmed = line.trim();
+    return trimmed.startsWith("|") && trimmed.endsWith("|");
+  };
+
+  const isSeparatorLine = (line) => {
+    const trimmed = line.trim();
+    return /^\|[\s:-|]+\|$/.test(trimmed) && trimmed.includes("-");
+  };
+
+  const processTable = (tableLines) => {
+    if (tableLines.length < 3) return tableLines;
+    
+    let sepIdx = -1;
+    for (let j = 0; j < tableLines.length; j++) {
+      if (isSeparatorLine(tableLines[j])) {
+        sepIdx = j;
+        break;
+      }
+    }
+    
+    if (sepIdx !== -1 && sepIdx >= Math.floor(tableLines.length / 2)) {
+      const remaining = tableLines.filter((_, idx) => idx !== sepIdx);
+      remaining.reverse();
+      remaining.splice(1, 0, tableLines[sepIdx]);
+      return remaining;
+    }
+    
+    return tableLines;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isTableLine(line)) {
+      currentTable.push(line);
+    } else {
+      if (currentTable.length > 0) {
+        resultLines.push(...processTable(currentTable));
+        currentTable = [];
+      }
+      resultLines.push(line);
+    }
+  }
+  if (currentTable.length > 0) {
+    resultLines.push(...processTable(currentTable));
+  }
+  text = resultLines.join("\n");
+
   text = text.replace(/\n{3,}/g, "\n\n");
 
   return text.trim();
