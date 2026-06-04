@@ -8,6 +8,17 @@ const cleanRawText = (rawText) => {
   if (!rawText) return "Fragment de text indisponibil.";
   let text = rawText;
 
+  const gcsRegex = /(https:\/\/storage\.googleapis\.com\/univflow-public-diagrams-[^\s)]+|https:\/\/storage\.googleapis\.com\/[^\s)]*graphrag_ingestion[^\s)]+)/gi;
+
+  // Normalize image tags: first extract raw URLs from existing brackets
+  text = text.replace(/!\[[^\]]*\]\((https:\/\/storage\.googleapis\.com\/[^\s)]+)\)/gi, "$1");
+  text = text.replace(/<img[^>]+src=["'](https:\/\/storage\.googleapis\.com\/[^"']+)["'][^>]*\/?>/gi, "$1");
+
+  // Re-wrap all diagram GCS URLs to Markdown image syntax
+  text = text.replace(gcsRegex, (match) => {
+    return `![Imagine extrasă din curs](${match})`;
+  });
+
   text = text.replace(/<ai_vision_description[^>]*>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
   text = text.replace(/\*\*Descriere Vizuală\s*\(Generată\s*AI\):\*\*[\s\S]*?(?=(\n\s*#{1,6}|\n\s*\*\*|$))/gi, "");
   text = text.replace(/[-*#_]*\s*Start of picture text\s*[-*#_]*/gi, "");
@@ -120,6 +131,18 @@ const cleanRawText = (rawText) => {
 
   text = text.replace(/\n{3,}/g, "\n\n");
 
+  return text.trim();
+};
+
+const cleanForPreview = (rawText) => {
+  if (!rawText) return "";
+  let text = cleanRawText(rawText);
+  // Strip Markdown image links
+  text = text.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
+  // Strip raw GCS links completely
+  text = text.replace(/https:\/\/storage\.googleapis\.com\/[^\s]*/gi, "");
+  // Clean double spaces/newlines
+  text = text.replace(/\s+/g, " ");
   return text.trim();
 };
 
@@ -281,44 +304,44 @@ export const SourcesPanel = ({
                       }
                       return <p className="mb-4 last:mb-0 text-left">{children}</p>;
                     },
-                    img: ({ src, alt }) => {
-                      return (
-                        <div 
-                          onClick={(e) => {
-                            if (matchedMaterial && openDocumentPanel) {
-                              e.stopPropagation();
-                              openDocumentPanel(matchedMaterial);
-                            }
-                          }}
-                          className={`my-3 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm flex flex-col gap-2 mx-auto relative ${
-                            matchedMaterial ? "cursor-pointer group/img hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all duration-200" : ""
-                          }`}
-                        >
-                          <div className="relative w-full rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80 p-2 min-h-[150px] max-h-[920px]">
-                            <img 
-                              src={src} 
-                              alt={alt || "Diagramă Curs"} 
-                              className="max-h-[900px] w-auto max-w-full object-contain rounded-md group-hover/img:scale-[1.01] transition-transform duration-200"
-                            />
-                            {matchedMaterial && (
-                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center gap-1">
-                                <FileText className="w-3.5 h-3.5 text-primary-400" /> Vezi Sursa
-                              </div>
-                            )}
-                          </div>
-                          <div className="px-1 py-0.5 flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
-                            <span className="font-semibold truncate max-w-[200px]" title={matchedMaterial?.name || "Diagramă"}>
-                              {matchedMaterial?.name || "Diagramă extrasă"}
-                            </span>
-                            {matchedMaterial && (
-                              <span className="shrink-0 text-primary-600 dark:text-primary-400 font-bold group-hover/img:underline">
-                                Deschide sursa
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
+                     img: ({ src, alt }) => {
+                       return (
+                         <div 
+                           onClick={(e) => {
+                             if (matchedMaterial && openDocumentPanel) {
+                               e.stopPropagation();
+                               openDocumentPanel(matchedMaterial);
+                             }
+                           }}
+                           className={`my-3 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm flex flex-col gap-2 mx-auto relative ${
+                             matchedMaterial ? "cursor-pointer group/img hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all duration-200" : ""
+                           }`}
+                         >
+                           <div className="relative w-full rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80 p-2 min-h-[150px] max-h-[920px]">
+                             <img 
+                               src={src} 
+                               alt={alt || "Diagramă Curs"} 
+                               className="max-h-[900px] w-auto max-w-full object-contain rounded-md group-hover/img:scale-[1.01] transition-transform duration-200"
+                             />
+                             {matchedMaterial && (
+                               <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center gap-1">
+                                 <FileText className="w-3.5 h-3.5 text-primary-400" /> Vezi Sursa
+                               </div>
+                             )}
+                           </div>
+                           <div className="px-1 py-0.5 flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
+                             <span className="font-semibold truncate max-w-[200px]" title={matchedMaterial?.name || "Diagramă"}>
+                               {matchedMaterial?.name || "Diagramă extrasă"}
+                             </span>
+                             {matchedMaterial && (
+                               <span className="shrink-0 text-primary-600 dark:text-primary-400 font-bold group-hover/img:underline">
+                                 Deschide sursa
+                               </span>
+                             )}
+                           </div>
+                         </div>
+                       );
+                     }
                   }}
                 >
                   {cleanContent}
@@ -372,7 +395,7 @@ export const SourcesPanel = ({
                             )}
                           </div>
                           <div className="border-l-[3px] border-slate-300 dark:border-slate-700 pl-3 py-1 text-[13px] text-slate-600 dark:text-slate-400 line-clamp-3">
-                            {src.text_extras || src.text || ""}
+                            {cleanRawText(src.text_extras || src.text || "")}
                           </div>
                         </Card>
                       );

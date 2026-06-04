@@ -17,6 +17,9 @@ export function useChat({ courseId } = {}) {
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
   const activeRequestRef = useRef(null);
+  const isAbortedRef = useRef(false);
+  const activeUserMsgIdRef = useRef(null);
+  const activeAiMsgIdRef = useRef(null);
 
   
   const scrollToBottom = useCallback(() => {
@@ -88,6 +91,7 @@ export function useChat({ courseId } = {}) {
 
   const fetchRawTextAnswer = useCallback(async ({ question, ctxCourseId, isReasoningEnabled }) => {
     const aiMsgId = `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    activeAiMsgIdRef.current = aiMsgId;
     setMessages(prev => [...prev, { id: aiMsgId, role: 'ai', text: '', isStreaming: true }]);
 
     const controller = new AbortController();
@@ -114,6 +118,7 @@ export function useChat({ courseId } = {}) {
       }
       scrollToBottom();
     } catch (error) {
+      if (isAbortedRef.current) return;
       const isAbort = error.name === 'AbortError' || error.name === 'CanceledError' || error.code === 'ERR_CANCELED';
       if (isAbort) {
         setMessages(prev =>
@@ -126,15 +131,17 @@ export function useChat({ courseId } = {}) {
         );
       }
     } finally {
-      setMessages((prev) => prev.map((m) => {
-        if (m.id === aiMsgId) {
-          const finalText = (!m.text || m.text.trim() === '') 
-            ? 'Nu am putut genera un răspuns. Verificați că există documente încărcate pentru acest curs și încercați din nou.' 
-            : m.text;
-          return { ...m, text: finalText, isStreaming: false };
-        }
-        return m;
-      }));
+      if (!isAbortedRef.current) {
+        setMessages((prev) => prev.map((m) => {
+          if (m.id === aiMsgId) {
+            const finalText = (!m.text || m.text.trim() === '') 
+              ? 'Nu am putut genera un răspuns. Verificați că există documente încărcate pentru acest curs și încercați din nou.' 
+              : m.text;
+            return { ...m, text: finalText, isStreaming: false };
+          }
+          return m;
+        }));
+      }
     }
   }, [scrollToBottom]);
 
@@ -144,7 +151,9 @@ export function useChat({ courseId } = {}) {
     if (!question || isTyping) return;
     if (!courseId) return;
 
+    isAbortedRef.current = false;
     const userMsgId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    activeUserMsgIdRef.current = userMsgId;
     setMessages(prev => [...prev, { id: userMsgId, role: 'user', text: question }]);
     setChatInput('');
     setIsTyping(true);
@@ -155,25 +164,32 @@ export function useChat({ courseId } = {}) {
     try {
       await fetchRawTextAnswer({ question, ctxCourseId: courseId, isReasoningEnabled });
     } catch {
-      setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'ai', text: 'Eroare la generare.', isStreaming: false }]);
+      if (!isAbortedRef.current) {
+        setMessages(prev => [...prev, { id: `err-${Date.now()}`, role: 'ai', text: 'Eroare la generare.', isStreaming: false }]);
+      }
     } finally {
-      setIsTyping(false);
+      if (!isAbortedRef.current) {
+        setIsTyping(false);
+      }
     }
   };
 
   const stopGeneration = useCallback(() => {
+    isAbortedRef.current = true;
     abortRef.current?.abort();
     abortRef.current = null;
 
     setIsTyping(false);
 
-    setMessages((prev) => {
-      const lastMsg = prev[prev.length - 1];
-      if (lastMsg && lastMsg.isStreaming) {
-         return prev.map(m => m.id === lastMsg.id ? { ...m, isStreaming: false } : m);
-      }
-      return prev;
-    });
+    // Put original prompt back into the chat text input
+    if (activeRequestRef.current && activeRequestRef.current.question) {
+      setChatInput(activeRequestRef.current.question);
+    }
+
+    // Filter out the active user and AI messages from the message history
+    setMessages((prev) => prev.filter(
+      m => m.id !== activeUserMsgIdRef.current && m.id !== activeAiMsgIdRef.current
+    ));
 
     if (courseId) {
       const payload = { courseId };
@@ -192,7 +208,9 @@ export function useChat({ courseId } = {}) {
     }
 
     activeRequestRef.current = null;
-  }, [courseId]);
+    activeUserMsgIdRef.current = null;
+    activeAiMsgIdRef.current = null;
+  }, [courseId, setChatInput]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

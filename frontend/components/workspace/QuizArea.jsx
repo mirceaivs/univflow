@@ -29,6 +29,8 @@ export const QuizArea = ({ navigateToGenerateTest, backToChat, quiz }) => {
     setSelectedOption,
     attempts,
     loading,
+    isFallback,
+    topic,
   } = quiz || {};
 
   if (loading || (!currentQuestion && !isFinished)) {
@@ -182,6 +184,18 @@ export const QuizArea = ({ navigateToGenerateTest, backToChat, quiz }) => {
           key={currentIndex}
           className="animate-in fade-in slide-in-from-right-12 duration-500 ease-out fill-mode-both"
         >
+          {isFallback && currentIndex === 0 && (
+            <div className="mb-8 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
+              <Sparkles className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <p className="font-bold text-sm">Test generat din concepte generale</p>
+                <p className="text-xs mt-1 text-amber-700/95 dark:text-amber-400/90 leading-relaxed">
+                  Subiectul solicitat <strong>"{topic}"</strong> nu a fost găsit în materialele cursului. Testul a fost generat pe baza conceptelor generale disponibile.
+                </p>
+              </div>
+            </div>
+          )}
+
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-10 leading-snug">
             {currentQuestion.question}
           </h2>

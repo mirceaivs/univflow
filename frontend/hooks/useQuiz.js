@@ -317,6 +317,21 @@ export function useQuiz({ quiz, questions = null, quizResetKey = 0, courseId, qu
     }
   }, [currentIndex, totalQuestions, submitScoreToBackend]);
 
+  const isFallback = useMemo(() => {
+    const contentJson = backendQuiz?.contentJson;
+    if (!contentJson) return false;
+    const parsed = safeParseJson(contentJson);
+    return !!parsed?.is_fallback;
+  }, [backendQuiz?.contentJson]);
+
+  const topic = useMemo(() => {
+    if (backendQuiz?.topic && backendQuiz.topic !== "conceptele principale") return backendQuiz.topic;
+    const contentJson = backendQuiz?.contentJson;
+    if (!contentJson) return backendQuiz?.topic || '';
+    const parsed = safeParseJson(contentJson);
+    return parsed?.topic || backendQuiz?.topic || '';
+  }, [backendQuiz?.topic, backendQuiz?.contentJson]);
+
   const handleRestart = useCallback(() => {
     if (backendQuiz?.id) localStorage.removeItem(`quiz_session_${backendQuiz.id}`);
     setCurrentIndex(0); setSelectedOption(null); setIsQuizSubmitted(false); setIsFinished(false); setScore(0); setAttempts([]);
@@ -324,7 +339,8 @@ export function useQuiz({ quiz, questions = null, quizResetKey = 0, courseId, qu
 
   return {
     loading, submitLoading,
-    topic: backendQuiz?.topic, difficulty: backendQuiz?.difficulty,
+    topic, difficulty: backendQuiz?.difficulty,
+    isFallback,
     currentIndex, currentQuestion, totalQuestions, progressPercentage,
     selectedOption, isQuizSubmitted, isFinished, score, scorePercentage, attempts,
     handleVerify, handleNextQuestion, handleRestart, setSelectedOption,

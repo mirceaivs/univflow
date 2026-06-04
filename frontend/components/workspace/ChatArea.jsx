@@ -396,11 +396,11 @@ export const ChatArea = ({
 
               {isTyping ? (
                 <button
-                  className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-transform active:scale-95 shadow-md shrink-0 flex items-center justify-center border-none outline-none focus:outline-none"
+                  className="p-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 rounded-full transition-transform active:scale-95 shadow-md shrink-0 flex items-center justify-center border-none outline-none focus:outline-none"
                   onClick={() => stopGeneration && stopGeneration()}
                   title="Oprește generarea"
                 >
-                  <Square className="w-4 h-4 text-white fill-white" />
+                  <Square className="w-3.5 h-3.5 fill-current" />
                 </button>
               ) : (
                 <button

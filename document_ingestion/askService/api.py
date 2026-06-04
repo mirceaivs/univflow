@@ -146,6 +146,7 @@ async def generate_quiz(
     is_general_quiz = not payload.topic or payload.topic.strip().lower() == "conceptele principale"
     
     all_docs = []
+    has_fallback = False
     
     if is_general_quiz:
         summary_docs = await get_global_summary(pool, course_id)
@@ -158,6 +159,7 @@ async def generate_quiz(
             summary_docs = await get_global_summary(pool, course_id)
             vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id, threshold=0.5)
             all_docs = summary_docs + vector_docs
+            has_fallback = True
 
     if not all_docs:
         raise HTTPException(status_code=404, detail="Nu am găsit suficiente informații în curs.")
@@ -191,7 +193,10 @@ async def generate_quiz(
     try:
         
         quiz_result = await generate_quiz_with_retry(llm, prompt)
-        return quiz_result.model_dump()
+        res_dict = quiz_result.model_dump()
+        res_dict["is_fallback"] = has_fallback
+        res_dict["topic"] = payload.topic
+        return res_dict
         
     except Exception as e:
         logger.error(f"Eroare finală la generarea testului: {str(e)}")
