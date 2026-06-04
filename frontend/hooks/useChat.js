@@ -114,7 +114,12 @@ export function useChat({ courseId } = {}) {
       }
       scrollToBottom();
     } catch (error) {
-      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+      const isAbort = error.name === 'AbortError' || error.name === 'CanceledError' || error.code === 'ERR_CANCELED';
+      if (isAbort) {
+        setMessages(prev =>
+          prev.map(m => m.id === aiMsgId ? { ...m, text: "Generare oprită de utilizator." } : m)
+        );
+      } else {
         console.error("Eroare în timpul preluării răspunsului:", error);
         setMessages((prev) => 
           prev.map((m) => (m.id === aiMsgId ? { ...m, text: m.text + "\n\n[Eroare de conexiune la server]" } : m))

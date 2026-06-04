@@ -2,6 +2,9 @@ import json
 import asyncio
 import uuid
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import AsyncGenerator, List, Any
 import time
 from langchain_core.documents import Document
@@ -318,6 +321,11 @@ async def generate_interaction(
 
         return {"text": full_ai_response, "citations": filtered_citations}
         
+    except asyncio.CancelledError:
+        full_ai_response = "Generare oprită de utilizator."
+        logger.info(f"Generare oprită de utilizator pentru session_id: {session_id}")
+        asyncio.create_task(persist_chat_interaction(pool, session_id, question, full_ai_response, []))
+        raise
     except Exception as e:
         error_msg = str(e)
         if "429" in error_msg or "quota" in error_msg.lower():
