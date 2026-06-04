@@ -91,6 +91,14 @@ function normalizeCorrectAnswer(rawCorrect, options) {
   return options[0].id;
 }
 
+function stripFallbackNote(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/^\[Notă:\s*[^\]]+\]\s*/gi, '')
+    .replace(/^\[Note:\s*[^\]]+\]\s*/gi, '')
+    .trim();
+}
+
 function toFrontendQuestion(q) {
   const questionText = q?.question ?? q?.text ?? q?.prompt ?? q?.title ?? '';
   const rawOptions = q?.options ?? q?.answers ?? q?.choices ?? q?.variants ?? q?.responses ?? [];
@@ -105,32 +113,32 @@ function toFrontendQuestion(q) {
     q?.correctIndex ??
     q?.solution;
 
-  let correctFeedbackStr = q?.explanation ?? '';
-  let incorrectFeedbackStr = q?.explanation ?? '';
+  let correctFeedbackStr = stripFallbackNote(q?.explanation ?? '');
+  let incorrectFeedbackStr = stripFallbackNote(q?.explanation ?? '');
 
   
   if (!correctRaw && rawOptions.length > 0) {
     const correctIndex = rawOptions.findIndex(o => o.is_correct === true || o.isCorrect === true);
     if (correctIndex !== -1) {
       correctRaw = options[correctIndex].id; 
-      correctFeedbackStr = rawOptions[correctIndex].feedback || correctFeedbackStr;
+      correctFeedbackStr = stripFallbackNote(rawOptions[correctIndex].feedback) || correctFeedbackStr;
     }
     
     const wrongIndex = rawOptions.findIndex(o => o.is_correct === false || o.isCorrect === false);
     if (wrongIndex !== -1) {
-      incorrectFeedbackStr = rawOptions[wrongIndex].feedback || incorrectFeedbackStr;
+      incorrectFeedbackStr = stripFallbackNote(rawOptions[wrongIndex].feedback) || incorrectFeedbackStr;
     }
   }
 
   const feedback =
     q?.feedback && typeof q.feedback === 'object'
       ? {
-          correct: q.feedback.correct ?? q.feedback.ok ?? q.feedback.right ?? correctFeedbackStr,
-          incorrect: q.feedback.incorrect ?? q.feedback.ko ?? q.feedback.wrong ?? incorrectFeedbackStr,
+          correct: stripFallbackNote(q.feedback.correct ?? q.feedback.ok ?? q.feedback.right ?? correctFeedbackStr),
+          incorrect: stripFallbackNote(q.feedback.incorrect ?? q.feedback.ko ?? q.feedback.wrong ?? incorrectFeedbackStr),
         }
       : {
-          correct: q?.feedbackCorrect ?? q?.explanationCorrect ?? q?.explanation ?? correctFeedbackStr,
-          incorrect: q?.feedbackIncorrect ?? q?.explanationIncorrect ?? q?.explanation ?? incorrectFeedbackStr,
+          correct: stripFallbackNote(q?.feedbackCorrect ?? q?.explanationCorrect ?? q?.explanation ?? correctFeedbackStr),
+          incorrect: stripFallbackNote(q?.feedbackIncorrect ?? q?.explanationIncorrect ?? q?.explanation ?? incorrectFeedbackStr),
         };
 
   return {

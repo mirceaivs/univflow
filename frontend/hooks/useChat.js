@@ -187,8 +187,10 @@ export function useChat({ courseId } = {}) {
     }
 
     // Filter out the active user and AI messages from the message history
+    const userMsgId = activeUserMsgIdRef.current;
+    const aiMsgId = activeAiMsgIdRef.current;
     setMessages((prev) => prev.filter(
-      m => m.id !== activeUserMsgIdRef.current && m.id !== activeAiMsgIdRef.current
+      m => m.id !== userMsgId && m.id !== aiMsgId
     ));
 
     if (courseId) {

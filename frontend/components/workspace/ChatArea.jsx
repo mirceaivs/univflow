@@ -213,7 +213,7 @@ export const ChatArea = ({
                       className={`rounded-2xl px-5 py-4 text-[15px] leading-relaxed ${
                         isUser
                           ? "bg-primary-600 text-white font-medium shadow-md shadow-primary-500/10 rounded-tr-none message-user-anim w-auto"
-                          : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim w-full"
+                          : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim w-fit max-w-full"
                       } ${
                         isPlaceholder
                           ? "italic text-slate-400 dark:text-slate-500 select-none animate-pulse transition-all duration-500"
