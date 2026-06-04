@@ -43,13 +43,69 @@ const applyThemeClass = (isDark) => {
 function AppInner() {
   const { user, isAuthLoading: authLoading } = useAuthContext();
   const { showNotification } = useNotification();
-  const [currentView, setCurrentView] = useState("dashboard");
+  const [currentView, setCurrentView] = useState(() => {
+    try {
+      return localStorage.getItem("app_current_view") || "dashboard";
+    } catch {
+      return "dashboard";
+    }
+  });
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [workspaceAction, setWorkspaceAction] = useState(null);
-  const [navParams, setNavParams] = useState(null);
-  const [workspaceState, setWorkspaceState] = useState(null);
+  const [navParams, setNavParams] = useState(() => {
+    try {
+      const saved = localStorage.getItem("app_nav_params");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [workspaceState, setWorkspaceState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("app_workspace_state");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [activeQuizGenerations, setActiveQuizGenerations] = useState({});
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("app_current_view", currentView);
+    } catch {}
+  }, [currentView]);
+
+  useEffect(() => {
+    try {
+      if (navParams) {
+        localStorage.setItem("app_nav_params", JSON.stringify(navParams));
+      } else {
+        localStorage.removeItem("app_nav_params");
+      }
+    } catch {}
+  }, [navParams]);
+
+  useEffect(() => {
+    try {
+      if (workspaceState) {
+        localStorage.setItem("app_workspace_state", JSON.stringify(workspaceState));
+      } else {
+        localStorage.removeItem("app_workspace_state");
+      }
+    } catch {}
+  }, [workspaceState]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      try {
+        localStorage.removeItem("app_current_view");
+        localStorage.removeItem("app_workspace_state");
+        localStorage.removeItem("app_nav_params");
+      } catch {}
+    }
+  }, [user, authLoading]);
 
   const startQuizGeneration = useCallback(async (course, topic, difficulty, questionCount) => {
     const courseId = course.backendId ?? course.id;

@@ -98,6 +98,7 @@ export const ChatArea = ({
   const scrollContainerRef = useRef(null);
   const scrollRestoreRef = useRef(null);
   const prevMessagesLengthRef = useRef(messages?.length || 0);
+  const isFirstRenderRef = useRef(true);
   const { activeJobs, removeJob } = useIngestion();
 
   
@@ -112,8 +113,8 @@ export const ChatArea = ({
 
   const isProcessing = !!stuckJob;
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((behavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
   const handleScroll = useCallback((e) => {
@@ -142,8 +143,12 @@ export const ChatArea = ({
     const hasNewMessageAtEnd = messages && messages.length > prevLength && 
       (prevLength === 0 || messages[messages.length - 1]?.id !== messages[prevLength - 1]?.id);
 
-    if (isTyping || hasNewMessageAtEnd) {
-      scrollToBottom();
+    if (isTyping || hasNewMessageAtEnd || isFirstRenderRef.current) {
+      const behavior = isFirstRenderRef.current ? "auto" : "smooth";
+      scrollToBottom(behavior);
+      if (isFirstRenderRef.current && messages && messages.length > 0) {
+        isFirstRenderRef.current = false;
+      }
     }
   }, [messages, isTyping, scrollToBottom]);
 
@@ -182,7 +187,7 @@ export const ChatArea = ({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto custom-scrollbar pt-4 px-4 md:pt-8 md:px-8 pb-[240px] ${
+        className={`flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pt-4 px-4 md:pt-8 md:px-8 pb-[240px] ${
           isProcessing
             ? "opacity-40 pointer-events-none pt-20 transition-all duration-300"
             : ""
