@@ -18,6 +18,16 @@ const cleanRawText = (rawText) => {
   text = text.replace(/~\s*o\s*/gi, "\n  - ");
   text = text.replace(/([:;])\s*o\s+([a-zA-Z\u0100-\u024F\w])/g, "$1\n  - $2");
 
+  // Clean diamond bullets (❖ or * ❖)
+  text = text.replace(/\*\s*❖/g, "-");
+  text = text.replace(/❖/g, "-");
+
+  // Split inline numbered questions into separate paragraphs
+  text = text.replace(/([.?!])\s+(\d+\.\s+[A-Z\u0100-\u024F])/g, "$1\n\n$2");
+
+  // Clean text separator asterisks (like ****)
+  text = text.replace(/\*{3,}/g, "");
+
   // Convert inline list items marked with ' - ' after sentence endings into actual list items
   text = text.replace(/([.?!)]|`)\s*-\s+/g, "$1\n- ");
 

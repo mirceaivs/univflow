@@ -248,6 +248,7 @@ export const ChatArea = ({
                                   return (
                                     <span
                                       data-prevent-outside-click="true"
+                                      onMouseDown={(e) => e.stopPropagation()}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         openSources(
@@ -284,6 +285,7 @@ export const ChatArea = ({
                                 return (
                                     <div 
                                       data-prevent-outside-click="true"
+                                      onMouseDown={(e) => e.stopPropagation()}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         if (matchedDoc && openDocumentPanel) {
