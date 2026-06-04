@@ -247,6 +247,8 @@ export const WorkspaceView = ({
                 documents={courseDocuments}
                 isReasoningEnabled={chat.isReasoningEnabled}
                 setIsReasoningEnabled={chat.setIsReasoningEnabled}
+                loadMoreHistory={chat.loadMoreHistory}
+                hasMore={chat.hasMore}
               />
             )}
           </div>

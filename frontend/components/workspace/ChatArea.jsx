@@ -91,9 +91,13 @@ export const ChatArea = ({
   openDocumentPanel,
   documents,
   isReasoningEnabled,
-  setIsReasoningEnabled
+  loadMoreHistory,
+  hasMore
 }) => {
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const scrollRestoreRef = useRef(null);
+  const prevMessagesLengthRef = useRef(messages?.length || 0);
   const { activeJobs, removeJob } = useIngestion();
 
   
@@ -112,8 +116,35 @@ export const ChatArea = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  const handleScroll = useCallback((e) => {
+    const { scrollTop, scrollHeight } = e.currentTarget;
+    if (scrollTop < 30 && !isLoadingHistory && hasMore && loadMoreHistory) {
+      scrollRestoreRef.current = {
+        prevScrollHeight: scrollHeight,
+        prevScrollTop: scrollTop,
+      };
+      loadMoreHistory();
+    }
+  }, [isLoadingHistory, hasMore, loadMoreHistory]);
+
   useEffect(() => {
-    scrollToBottom();
+    const prevLength = prevMessagesLengthRef.current;
+    prevMessagesLengthRef.current = messages?.length || 0;
+
+    if (scrollRestoreRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const diff = container.scrollHeight - scrollRestoreRef.current.prevScrollHeight;
+      container.scrollTop = scrollRestoreRef.current.prevScrollTop + diff;
+      scrollRestoreRef.current = null;
+      return;
+    }
+
+    const hasNewMessageAtEnd = messages && messages.length > prevLength && 
+      (prevLength === 0 || messages[messages.length - 1]?.id !== messages[prevLength - 1]?.id);
+
+    if (isTyping || hasNewMessageAtEnd) {
+      scrollToBottom();
+    }
   }, [messages, isTyping, scrollToBottom]);
 
   
@@ -149,6 +180,8 @@ export const ChatArea = ({
       )}
 
       <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
         className={`flex-1 overflow-y-auto custom-scrollbar pt-4 px-4 md:pt-8 md:px-8 pb-[240px] ${
           isProcessing
             ? "opacity-40 pointer-events-none pt-20 transition-all duration-300"
@@ -156,15 +189,20 @@ export const ChatArea = ({
         }`}
       >
         <div className="max-w-4xl mx-auto w-full flex flex-col space-y-6">
-          {isLoadingHistory ? (
-          <div className="h-full flex flex-col items-center justify-center text-center py-20 gap-4">
-            <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">
-              Se încarcă istoricul conversației...
-            </p>
-          </div>
-        ) : (
-          <>
+          {isLoadingHistory && (!messages || messages.length === 0) ? (
+            <div className="h-full flex flex-col items-center justify-center text-center py-20 gap-4">
+              <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">
+                Se încarcă istoricul conversației...
+              </p>
+            </div>
+          ) : (
+            <>
+              {isLoadingHistory && (
+                <div className="flex justify-center py-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+                </div>
+              )}
             {(!messages || messages.length === 0) && (
               <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto animate-in fade-in duration-500">
                 <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-primary-600 dark:text-primary-400 mb-6">

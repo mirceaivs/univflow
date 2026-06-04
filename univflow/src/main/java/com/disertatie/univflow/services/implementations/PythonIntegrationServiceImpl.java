@@ -112,9 +112,10 @@ public class PythonIntegrationServiceImpl implements PythonIntegrationService {
                 .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
                 .baseUrl(askServiceUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                 .build();
 
-        log.info("WebClient a fost configurat cu succes la adresa: {} cu timeout conexiune 15s și read 120s", askServiceUrl);
+        log.info("WebClient a fost configurat cu succes la adresa: {} cu timeout conexiune 15s și read 120s, buffer 16MB", askServiceUrl);
     }
 
     @Override
