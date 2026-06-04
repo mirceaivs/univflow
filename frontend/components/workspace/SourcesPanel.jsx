@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Image } from "lucide-react";
 import { Card } from "../ui.jsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -157,7 +157,7 @@ export const SourcesPanel = ({
 
   if (sourceToRender) {
     const textContent = sourceToRender.text_extras || sourceToRender.text || "";
-    cleanContent = cleanRawText(textContent);
+    cleanContent = sourceToRender.id === "diagram-preview" ? textContent : cleanRawText(textContent);
 
     const sourceFile = sourceToRender.source_file || "Sursă Necunoscută";
     const pageNumMatch = sourceToRender.header
@@ -165,48 +165,54 @@ export const SourcesPanel = ({
       : null;
     pageNum = pageNumMatch ? pageNumMatch[1] : null;
 
-    const isGlobalSummary = sourceFile.toLowerCase() === "rezumat global" || 
+    const isGlobalSummary = sourceFile.toLowerCase().includes("rezumat global") || 
                             sourceToRender.header === "Viziune de Ansamblu";
 
     if (isGlobalSummary) {
       finalSourceName = "Rezumat";
       isClickable = false;
     } else {
-      finalSourceName = sourceFile.replace(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]?/i,
-        ""
-      );
-      if (!finalSourceName || finalSourceName.toLowerCase() === ".pdf") {
-        finalSourceName = "Document Curs";
-      }
-
-      const cleanForCompare = (name) => {
-        if (!name) return "";
-        return name.toLowerCase().replace(/\.(pdf|docx?|pptx?)$/i, "").trim();
-      };
-      const cleanSource = cleanForCompare(finalSourceName);
-
-      matchedMaterial = materials?.find((m) => {
-        const extractedJobId = sourceFile.replace(/\.pdf$/i, "").trim();
-        if (String(m.id) === extractedJobId || String(m.backendId) === extractedJobId) {
-          return true;
-        }
-        const uuidMatch = sourceFile.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-        if (uuidMatch) {
-          const uuid = uuidMatch[1].toLowerCase();
-          if (m.id?.toString().toLowerCase() === uuid || m.backendId?.toString().toLowerCase() === uuid || m.jobId?.toString().toLowerCase() === uuid) {
-            return true;
-          }
-        }
-        const cleanMatName = cleanForCompare(m.name);
-        return cleanMatName && cleanSource && cleanMatName === cleanSource;
-      });
-
-      if (matchedMaterial && matchedMaterial.name) {
-        finalSourceName = matchedMaterial.name;
+      if (sourceToRender.id === "diagram-preview" && sourceToRender.document) {
+        matchedMaterial = sourceToRender.document;
+        finalSourceName = matchedMaterial.name || sourceFile;
         isClickable = true;
       } else {
-        isClickable = false;
+        finalSourceName = sourceFile.replace(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]?/i,
+          ""
+        );
+        if (!finalSourceName || finalSourceName.toLowerCase() === ".pdf") {
+          finalSourceName = "Document Curs";
+        }
+
+        const cleanForCompare = (name) => {
+          if (!name) return "";
+          return name.toLowerCase().replace(/\.(pdf|docx?|pptx?)$/i, "").trim();
+        };
+        const cleanSource = cleanForCompare(finalSourceName);
+
+        matchedMaterial = materials?.find((m) => {
+          const extractedJobId = sourceFile.replace(/\.pdf$/i, "").trim();
+          if (String(m.id) === extractedJobId || String(m.backendId) === extractedJobId) {
+            return true;
+          }
+          const uuidMatch = sourceFile.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+          if (uuidMatch) {
+            const uuid = uuidMatch[1].toLowerCase();
+            if (m.id?.toString().toLowerCase() === uuid || m.backendId?.toString().toLowerCase() === uuid || m.jobId?.toString().toLowerCase() === uuid) {
+              return true;
+            }
+          }
+          const cleanMatName = cleanForCompare(m.name);
+          return cleanMatName && cleanSource && cleanMatName === cleanSource;
+        });
+
+        if (matchedMaterial && matchedMaterial.name) {
+          finalSourceName = matchedMaterial.name;
+          isClickable = true;
+        } else {
+          isClickable = false;
+        }
       }
     }
   }
@@ -225,9 +231,15 @@ export const SourcesPanel = ({
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <div className="w-5 h-5 shrink-0 rounded-full bg-primary-600 text-white flex items-center justify-center text-[11px] font-bold shadow-sm">
-                    {sourceToRender.displayIndex}
-                  </div>
+                  {sourceToRender.id === "diagram-preview" ? (
+                    <div className="w-5 h-5 shrink-0 rounded-full bg-primary-600 text-white flex items-center justify-center shadow-sm">
+                      <Image className="w-3 h-3 text-white" />
+                    </div>
+                  ) : (
+                    <div className="w-5 h-5 shrink-0 rounded-full bg-primary-600 text-white flex items-center justify-center text-[11px] font-bold shadow-sm">
+                      {sourceToRender.displayIndex}
+                    </div>
+                  )}
                   {isClickable ? (
                     <button
                       onClick={() => openDocumentPanel && openDocumentPanel(matchedMaterial)}
@@ -255,7 +267,60 @@ export const SourcesPanel = ({
               </div>
 
               <div className="border-l-[3px] border-primary-400 pl-4 py-2 text-[13.5px] text-slate-800 dark:text-slate-200 bg-slate-50/50 dark:bg-slate-900/30 rounded-r-lg prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:leading-relaxed prose-th:border prose-th:border-slate-300 dark:prose-th:border-slate-700 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-th:p-2 prose-td:border prose-td:border-slate-300 dark:prose-td:border-slate-700 prose-td:p-2 prose-table:border-collapse prose-table:w-full prose-table:text-[12.5px] overflow-x-auto">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => {
+                      const hasImage = React.Children.toArray(children).some(
+                        (child) =>
+                          React.isValidElement(child) &&
+                          (child.type === "img" || (child.props && (child.props.src || child.props.href)))
+                      );
+                      if (hasImage) {
+                        return <div className="my-2 flex flex-col gap-2 items-center w-full">{children}</div>;
+                      }
+                      return <p className="mb-4 last:mb-0">{children}</p>;
+                    },
+                    img: ({ src, alt }) => {
+                      return (
+                        <div 
+                          onClick={(e) => {
+                            if (matchedMaterial && openDocumentPanel) {
+                              e.stopPropagation();
+                              openDocumentPanel(matchedMaterial);
+                            }
+                          }}
+                          className={`my-3 w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm flex flex-col gap-2 mx-auto relative ${
+                            matchedMaterial ? "cursor-pointer group/img hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all duration-200" : ""
+                          }`}
+                        >
+                          <div className="relative w-full rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80 p-2 min-h-[150px] max-h-[520px]">
+                            <img 
+                              src={src} 
+                              alt={alt || "Diagramă Curs"} 
+                              className="max-h-[500px] w-auto max-w-full object-contain rounded-md group-hover/img:scale-[1.01] transition-transform duration-200"
+                            />
+                            {matchedMaterial && (
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center gap-1">
+                                <FileText className="w-3.5 h-3.5 text-primary-400" /> Vezi Sursa
+                              </div>
+                            )}
+                          </div>
+                          <div className="px-1 py-0.5 flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
+                            <span className="font-semibold truncate max-w-[200px]" title={matchedMaterial?.name || "Diagramă"}>
+                              {matchedMaterial?.name || "Diagramă extrasă"}
+                            </span>
+                            {matchedMaterial && (
+                              <span className="shrink-0 text-primary-600 dark:text-primary-400 font-bold group-hover/img:underline">
+                                Deschide sursa
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }}
+                >
                   {cleanContent}
                 </ReactMarkdown>
               </div>
@@ -263,7 +328,7 @@ export const SourcesPanel = ({
           ) : (
             <div className="flex flex-col space-y-5">
               <div className="p-4 text-center text-sm font-medium text-slate-500 italic border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/30">
-                Sursa [{focusedSourceId}] nu a putut fi localizată în acest mesaj (posibil o referință inexistentă generată de AI).
+                Sursa selectată nu a putut fi localizată în acest mesaj (posibil o referință inexistentă generată de AI).
               </div>
               
               {displayedSources.length > 0 && (
@@ -274,10 +339,13 @@ export const SourcesPanel = ({
                   <div className="space-y-3">
                     {displayedSources.map((src) => {
                       const sourceFile = src.source_file || "Sursă Necunoscută";
-                      const cleanSourceName = sourceFile.replace(
+                      let cleanSourceName = sourceFile.replace(
                         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]?/i,
                         ""
                       );
+                      if (cleanSourceName.toLowerCase().includes("rezumat global")) {
+                        cleanSourceName = "Rezumat";
+                      }
                       const pageNumMatch = src.header
                         ? src.header.match(/Pagina\s+(\d+)/i)
                         : null;

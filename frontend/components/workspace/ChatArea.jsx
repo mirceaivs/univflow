@@ -205,14 +205,14 @@ export const ChatArea = ({
                   )}
 
                   <div
-                    className={`max-w-[85%] md:max-w-[75%] flex flex-col ${
-                      isUser ? "items-end" : "items-start"
+                    className={`flex-1 flex flex-col min-w-0 ${
+                      isUser ? "max-w-[85%] md:max-w-[75%] items-end" : "w-full max-w-full items-start"
                     }`}
                   >
                     <div
-                      className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
+                      className={`rounded-2xl px-5 py-4 text-[15px] leading-relaxed w-full ${
                         isUser
-                          ? "bg-primary-600 text-white font-medium shadow-md shadow-primary-500/10 rounded-tr-none message-user-anim"
+                          ? "bg-primary-600 text-white font-medium shadow-md shadow-primary-500/10 rounded-tr-none message-user-anim w-auto"
                           : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-none message-ai-anim"
                       } ${
                         isPlaceholder
@@ -238,6 +238,17 @@ export const ChatArea = ({
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
+                              p: ({ children }) => {
+                                const hasImage = React.Children.toArray(children).some(
+                                  (child) =>
+                                    React.isValidElement(child) &&
+                                    (child.type === "img" || (child.props && (child.props.src || child.props.href)))
+                                );
+                                if (hasImage) {
+                                  return <div className="my-2 flex flex-col gap-2 items-center w-full">{children}</div>;
+                                }
+                                return <p className="mb-4 last:mb-0">{children}</p>;
+                              },
                               a: ({ href, children }) => {
                                 if (href && href.startsWith("citation-")) {
                                   const sourceId = href.replace("citation-", "");
@@ -290,17 +301,29 @@ export const ChatArea = ({
                                       onMouseDown={(e) => e.stopPropagation()}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (matchedDoc && openDocumentPanel) {
-                                          openDocumentPanel(matchedDoc);
+                                        if (openSources) {
+                                          openSources(
+                                            [
+                                              {
+                                                id: "diagram-preview",
+                                                source_file: matchedDoc?.name || "Diagramă Curs",
+                                                text_extras: `![Imagine](${src})`,
+                                                header: "Vizualizare Diagramă",
+                                                document: matchedDoc
+                                              }
+                                            ],
+                                            "diagram-preview",
+                                            msg.id
+                                          );
                                         }
                                       }}
-                                    className="my-3 w-full max-w-3xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm hover:shadow-md hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-all duration-200 group flex flex-col gap-2"
+                                    className="my-3 w-full max-w-3xl mx-auto rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 shadow-sm hover:shadow-md hover:border-primary-500/50 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer transition-all duration-200 group flex flex-col gap-2"
                                   >
-                                    <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80">
+                                    <div className="relative w-full rounded-lg overflow-hidden bg-white dark:bg-slate-950 flex items-center justify-center border border-slate-100 dark:border-slate-800/80 p-2 min-h-[150px] max-h-[520px]">
                                       <img 
                                         src={src} 
                                         alt={alt || "Diagramă Curs"} 
-                                        className="max-h-[450px] max-w-full object-contain group-hover:scale-[1.02] transition-transform duration-200"
+                                        className="max-h-[500px] w-auto max-w-full object-contain group-hover:scale-[1.01] transition-transform duration-200"
                                       />
                                       {matchedDoc && (
                                         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1">
