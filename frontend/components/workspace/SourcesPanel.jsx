@@ -16,6 +16,7 @@ const cleanRawText = (rawText) => {
   // Normalize bullet symbols parsed as backticked o or ~o
   text = text.replace(/`\s*~?o\s*`/gi, "\n  - ");
   text = text.replace(/~\s*o\s*/gi, "\n  - ");
+  text = text.replace(/([:;])\s*o\s+([a-zA-Z\u0100-\u024F\w])/g, "$1\n  - $2");
 
   // Convert inline list items marked with ' - ' after sentence endings into actual list items
   text = text.replace(/([.?!)]|`)\s*-\s+/g, "$1\n- ");
