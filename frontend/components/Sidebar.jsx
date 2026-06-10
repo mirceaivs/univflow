@@ -144,7 +144,7 @@ export const Sidebar = ({
                     <div className="ml-8 mt-1 mb-3 space-y-0.5 overflow-y-auto max-h-[40vh] custom-scrollbar pr-1 dropdown-enter">
                       {courses.map((course) => {
                         const isCourseQuizGenerating = !!activeQuizGenerations[course.backendId];
-                        const isCourseProcessing = isCourseQuizGenerating || Object.values(activeJobs || {}).some(
+                        const isCourseProcessing = Object.values(activeJobs || {}).some(
                           (job) => String(job.courseId) === String(course.backendId) && job.status !== "COMPLETED" && job.status !== "FAILED"
                         );
                         const isCourseActive = currentView === "workspace" && String(course.backendId) === String(activeCourseId);
