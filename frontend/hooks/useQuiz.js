@@ -125,6 +125,7 @@ function stripFallbackNote(text) {
   if (typeof text !== 'string') return text;
   return text
     .replace(/^\[Notă:\s*[^\]]+\]\s*/gi, '')
+    .replace(/^\[Nota:\s*[^\]]+\]\s*/gi, '')
     .replace(/^\[Note:\s*[^\]]+\]\s*/gi, '')
     .trim();
 }

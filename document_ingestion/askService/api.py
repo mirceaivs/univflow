@@ -153,7 +153,7 @@ async def generate_quiz(
         vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id, threshold=0.5)
         all_docs = summary_docs + vector_docs
     else:
-        all_docs = await get_vector_context(pool, embeddings_model, f"informații esențiale despre {payload.topic}", course_id, threshold=0.5)
+        all_docs = await get_vector_context(pool, embeddings_model, payload.topic, course_id, threshold=0.44)
         if not all_docs:
             logger.info(f"No specific chunks found for topic '{payload.topic}'. Falling back to general summary and concepts.")
             summary_docs = await get_global_summary(pool, course_id)
@@ -194,7 +194,18 @@ async def generate_quiz(
         
         quiz_result = await generate_quiz_with_retry(llm, prompt)
         res_dict = quiz_result.model_dump()
-        res_dict["is_fallback"] = has_fallback
+        
+        # Check if the LLM chose to fall back by prefixing the first explanation with a note
+        llm_fallback = False
+        if res_dict.get("questions"):
+            first_q = res_dict["questions"][0]
+            explanation = first_q.get("explanation", "")
+            if isinstance(explanation, str):
+                exp_clean = explanation.strip().lower()
+                if exp_clean.startswith("[notă:") or exp_clean.startswith("[nota:") or exp_clean.startswith("[note:") or exp_clean.startswith("[notã:"):
+                    llm_fallback = True
+                    
+        res_dict["is_fallback"] = has_fallback or llm_fallback
         res_dict["topic"] = payload.topic
         return res_dict
         
