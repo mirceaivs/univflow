@@ -35,14 +35,12 @@ const cleanRawText = (rawText) => {
 
   const gcsRegex = /(https:\/\/storage\.googleapis\.com\/univflow-public-diagrams-[^\s)]+|https:\/\/storage\.googleapis\.com\/[^\s)]*graphrag_ingestion[^\s)]+)/gi;
 
-  // Normalize image tags: first extract raw URLs from existing brackets
-  text = text.replace(/!\[[^\]]*\]\((https:\/\/storage\.googleapis\.com\/[^\s)]+)\)/gi, "$1");
-  text = text.replace(/<img[^>]+src=["'](https:\/\/storage\.googleapis\.com\/[^"']+)["'][^>]*\/?>/gi, "$1");
+  // Strip image tags completely so they don't clutter the text excerpt
+  text = text.replace(/!\[[^\]]*\]\((https:\/\/storage\.googleapis\.com\/[^\s)]+)\)/gi, "");
+  text = text.replace(/<img[^>]+src=["'](https:\/\/storage\.googleapis\.com\/[^"']+)["'][^>]*\/?>/gi, "");
 
-  // Re-wrap all diagram GCS URLs to Markdown image syntax
-  text = text.replace(gcsRegex, (match) => {
-    return `![Imagine extrasă din curs](${match})`;
-  });
+  // Strip bare GCS URLs
+  text = text.replace(gcsRegex, "");
 
   text = text.replace(/<ai_vision_description[^>]*>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
   text = text.replace(/\*\*Descriere Vizuală\s*\(Generată\s*AI\):\*\*[\s\S]*?(?=(\n\s*#{1,6}|\n\s*\*\*|$))/gi, "");
@@ -60,6 +58,9 @@ const cleanRawText = (rawText) => {
   text = text.replace(/\*\s*❖/g, "-");
   text = text.replace(/❖/g, "-");
 
+  // Clean double list markers (e.g. *  *  or - -)
+  text = text.replace(/^\s*([\*\-\+]\s+){2,}/gm, "- ");
+
   // Split inline numbered questions into separate paragraphs
   text = text.replace(/([.?!])\s+(\d+\.\s+[A-Z\u0100-\u024F])/g, "$1\n\n$2");
 
@@ -72,7 +73,7 @@ const cleanRawText = (rawText) => {
   // Remove backticks inside table cells (e.g. | `cell` | -> | cell |)
   text = text.replace(/(\|\s*)`([^`|\n]+)`(\s*(?=\|))/g, "$1$2$3");
 
-  text = text.replace(/\n\s*#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References)[\s\S]*/i, "");
+  text = text.replace(/(?:\n|^)\s*(?:\d+\.?\s*)?#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References|Bibliography)[\s\S]*/i, "");
 
   // Fix tables by making sure adjacent table rows have newlines
   text = text.replace(/(\|[^\n]+\|)\s+(?=\|)/g, "$1\n");

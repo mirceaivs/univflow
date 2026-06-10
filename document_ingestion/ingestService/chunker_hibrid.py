@@ -116,13 +116,19 @@ class MultimodalSemanticPipeline:
         pdf_document = fitz.open(file_path)
         try:
             layout_data = pymupdf4llm.to_markdown(file_path, page_chunks=True)
+            bib_pattern = re.compile(r'(?:\n|^)\s*(?:\d+\.?\s*)?#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References|Bibliography)\b', re.IGNORECASE)
+            in_bibliography = False
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
                 for page_index, page_data in enumerate(layout_data):
                     page = pdf_document.load_page(page_index)
+                    
+                    if not in_bibliography and re.search(bib_pattern, page_data.get('text', '')):
+                        in_bibliography = True
+                        
                     has_extracted_images = False
                     
-                    if 'images' in page_data and page_data['images']:
+                    if not in_bibliography and 'images' in page_data and page_data['images']:
                         for index, img_meta in enumerate(page_data['images']):
                             bbox = img_meta.get('bbox')
                             if not bbox: continue
@@ -144,7 +150,7 @@ class MultimodalSemanticPipeline:
                             img_meta['future_data'] = future
                             has_extracted_images = True
 
-                    if not has_extracted_images:
+                    if not in_bibliography and not has_extracted_images:
                         drawings = page.get_drawings()
                         images = page.get_images()
                         
@@ -245,7 +251,7 @@ class MultimodalSemanticPipeline:
         
         
 
-        bib_pattern = re.compile(r'(?:\n|^)\s*#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References)[\s\S]*', re.IGNORECASE)
+        bib_pattern = re.compile(r'(?:\n|^)\s*(?:\d+\.?\s*)?#{0,4}\s*(Bibliografie|Bibliografii|Referințe|Referinte|References|Bibliography)[\s\S]*', re.IGNORECASE)
         full_document_text = re.sub(bib_pattern, '', full_document_text)
 
         

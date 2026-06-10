@@ -320,32 +320,18 @@ export const ChatArea = ({
                                     (child.type === "img" || (child.props && typeof child.props.src === "string"))
                                 );
                                 if (hasImage) {
-                                  const imageChildren = childrenArray.filter(
-                                    (child) =>
-                                      React.isValidElement(child) &&
-                                      (child.type === "img" || (child.props && typeof child.props.src === "string"))
-                                  );
-                                  const nonImageChildren = childrenArray.filter(
-                                    (child) =>
-                                      !(React.isValidElement(child) &&
-                                        (child.type === "img" || (child.props && typeof child.props.src === "string")))
-                                  );
-                                  
-                                  const hasActualText = nonImageChildren.some((child) => {
-                                    if (typeof child === "string" && !child.trim()) return false;
-                                    return true;
-                                  });
-
                                   return (
-                                    <div className="my-2 w-full flex flex-col gap-2">
-                                      <div className="flex flex-col items-center w-full">
-                                        {imageChildren}
-                                      </div>
-                                      {hasActualText && (
-                                        <p className="mb-4 last:mb-0 text-left">
-                                          {nonImageChildren}
-                                        </p>
-                                      )}
+                                    <div className="mb-4 last:mb-0 text-left w-full leading-relaxed">
+                                      {childrenArray.map((child, idx) => {
+                                        if (React.isValidElement(child) && (child.type === "img" || (child.props && typeof child.props.src === "string"))) {
+                                          return (
+                                            <div key={idx} className="w-full flex flex-col items-center my-2">
+                                              {child}
+                                            </div>
+                                          );
+                                        }
+                                        return <React.Fragment key={idx}>{child}</React.Fragment>;
+                                      })}
                                     </div>
                                   );
                                 }
