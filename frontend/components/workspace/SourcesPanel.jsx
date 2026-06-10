@@ -4,6 +4,31 @@ import { Card } from "../ui.jsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const balanceTripleBackticks = (text) => {
+  if (!text) return text;
+  const segments = text.split("```");
+  if (segments.length % 2 === 0) {
+    const lastSegment = segments[segments.length - 1];
+    const boundaries = [
+      { index: lastSegment.indexOf("\n\n") },
+      { index: lastSegment.indexOf("\n#") },
+      { index: lastSegment.indexOf("![") }
+    ];
+    const validBoundaries = boundaries.filter((b) => b.index !== -1);
+    if (validBoundaries.length > 0) {
+      validBoundaries.sort((a, b) => a.index - b.index);
+      const boundaryIndex = validBoundaries[0].index;
+      const left = lastSegment.slice(0, boundaryIndex);
+      const right = lastSegment.slice(boundaryIndex);
+      segments[segments.length - 1] = left + "\n```\n" + right;
+    } else {
+      segments[segments.length - 1] = lastSegment + "\n```";
+    }
+    return segments.join("```");
+  }
+  return text;
+};
+
 const cleanRawText = (rawText) => {
   if (!rawText) return "Fragment de text indisponibil.";
   let text = rawText;
@@ -130,6 +155,7 @@ const cleanRawText = (rawText) => {
   text = resultLines.join("\n");
 
   text = text.replace(/\n{3,}/g, "\n\n");
+  text = balanceTripleBackticks(text);
 
   return text.trim();
 };
@@ -294,16 +320,44 @@ export const SourcesPanel = ({
                   remarkPlugins={[remarkGfm]}
                   components={{
                      p: ({ children }) => {
-                      const hasImage = React.Children.toArray(children).some(
-                        (child) =>
-                          React.isValidElement(child) &&
-                          (child.type === "img" || (child.props && typeof child.props.src === "string"))
-                      );
-                      if (hasImage) {
-                        return <div className="my-2 flex flex-col gap-2 items-center w-full">{children}</div>;
-                      }
-                      return <p className="mb-4 last:mb-0 text-left">{children}</p>;
-                    },
+                       const childrenArray = React.Children.toArray(children);
+                       const hasImage = childrenArray.some(
+                         (child) =>
+                           React.isValidElement(child) &&
+                           (child.type === "img" || (child.props && typeof child.props.src === "string"))
+                       );
+                       if (hasImage) {
+                         const imageChildren = childrenArray.filter(
+                           (child) =>
+                             React.isValidElement(child) &&
+                             (child.type === "img" || (child.props && typeof child.props.src === "string"))
+                         );
+                         const nonImageChildren = childrenArray.filter(
+                           (child) =>
+                             !(React.isValidElement(child) &&
+                               (child.type === "img" || (child.props && typeof child.props.src === "string")))
+                         );
+                         
+                         const hasActualText = nonImageChildren.some((child) => {
+                           if (typeof child === "string" && !child.trim()) return false;
+                           return true;
+                         });
+
+                         return (
+                           <div className="my-2 w-full flex flex-col gap-2">
+                             <div className="flex flex-col items-center w-full">
+                               {imageChildren}
+                             </div>
+                             {hasActualText && (
+                               <p className="mb-4 last:mb-0 text-left">
+                                 {nonImageChildren}
+                               </p>
+                             )}
+                           </div>
+                         );
+                       }
+                       return <p className="mb-4 last:mb-0 text-left">{children}</p>;
+                     },
                      img: ({ src, alt }) => {
                        return (
                          <div 

@@ -313,13 +313,41 @@ export const ChatArea = ({
                             remarkPlugins={[remarkGfm]}
                             components={{
                               p: ({ children }) => {
-                                const hasImage = React.Children.toArray(children).some(
+                                const childrenArray = React.Children.toArray(children);
+                                const hasImage = childrenArray.some(
                                   (child) =>
                                     React.isValidElement(child) &&
                                     (child.type === "img" || (child.props && typeof child.props.src === "string"))
                                 );
                                 if (hasImage) {
-                                  return <div className="my-2 flex flex-col gap-2 items-center w-full">{children}</div>;
+                                  const imageChildren = childrenArray.filter(
+                                    (child) =>
+                                      React.isValidElement(child) &&
+                                      (child.type === "img" || (child.props && typeof child.props.src === "string"))
+                                  );
+                                  const nonImageChildren = childrenArray.filter(
+                                    (child) =>
+                                      !(React.isValidElement(child) &&
+                                        (child.type === "img" || (child.props && typeof child.props.src === "string")))
+                                  );
+                                  
+                                  const hasActualText = nonImageChildren.some((child) => {
+                                    if (typeof child === "string" && !child.trim()) return false;
+                                    return true;
+                                  });
+
+                                  return (
+                                    <div className="my-2 w-full flex flex-col gap-2">
+                                      <div className="flex flex-col items-center w-full">
+                                        {imageChildren}
+                                      </div>
+                                      {hasActualText && (
+                                        <p className="mb-4 last:mb-0 text-left">
+                                          {nonImageChildren}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
                                 }
                                 return <p className="mb-4 last:mb-0 text-left">{children}</p>;
                               },
