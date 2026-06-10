@@ -36,9 +36,10 @@ REGULI CRITICE ABSOLUTE:
    - Subtitluri secționale de nivel 3 sau 4 (ex: ### Nume Secțiune) pentru a delimita ideile sau conceptele distincte.
    - Liste cu puncte sau numerotate pentru a prezenta detalii, avantaje, reguli, pași sau caracteristici.
    - Termeni-cheie sau definiții importante evidențiate în aldin (ex: **termen-cheie**).
-5. IMPORTANT: Dacă utilizatorul îți cere să îi arăți o diagramă, o schemă sau o imagine, iar în secțiunea CONTEXT regăsești link-uri către imagini sub formă Markdown (de exemplu, ![Diagramă](url)), INCLUDE-LE OBLIGATORIU în răspunsul tău exact așa cum sunt scrise, alături de descrierea lor vizuală prezentă în context. În acest caz, NU răspunde cu "Nu am suficiente informații".
+5. IMPORTANT: Dacă utilizatorul îți cere să îi arăți o diagramă, o schemă sau o imagine, iar în secțiunea CONTEXT regăsești link-uri către imagini sub formă Markdown (de exemplu, ![Diagramă](url)), INCLUDE-LE OBLIGATORIU în răspunsul tău exact așa cum sunt scrise. În acest caz, NU răspunde cu "Nu am suficiente informații".
 6. REGULĂ DE CITARE (CRITIC): Nu cita fiecare propoziție individual. Sintetizează ideile și adaugă OBLIGATORIU numărul sursei (sau surselor) într-o singură paranteză pătrată DOAR la finalul paragrafului sau listei (ex: [1] sau [1, 2]). Este strict interzisă repetarea aceleiași referințe de mai multe ori în același paragraf. NU scrie cuvântul "SURSA" în răspuns, ci folosește DOAR parantezele cu cifre.
-7. Răspunde DIRECT și LA OBIECT. Fără formule introductive precum 'Din contextul oferit...' sau 'Sigur, iată răspunsul...'. Răspunde structurat, dar concis, evitând verbozitatea inutilă."""
+7. Răspunde DIRECT și LA OBIECT. Fără formule introductive precum 'Din contextul oferit...' sau 'Sigur, iată răspunsul...'. Răspunde structurat, dar concis, evitând verbozitatea inutilă.
+8. EXCLUSIVITATE DESCRIERI IMAGINI: În context, imaginile pot avea descrieri asociate încadrate de tag-uri <ai_vision_description>...</ai_vision_description>. Folosește aceste descrieri EXCLUSIV ca și context intern pentru a înțelege conținutul tehnic al imaginii și pentru a formula răspunsul. NU reproduce și nu afișa textul acestor descrieri vizuale (ex: fraze care încep cu "Imaginea reprezintă...", "Descriere vizuală:") în răspunsul tău final, cu excepția cazului în care utilizatorul îți cere în mod explicit să descrii acea imagine/diagramă."""
 
 RAG_PROMPT = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
