@@ -3,6 +3,36 @@ import { apiClient } from '../services/apiClient.js';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
+function cleanRomanianText(text) {
+  if (typeof text !== 'string') return text;
+  let clean = text.normalize('NFC');
+  
+  clean = clean.replace(/\u008e/g, 'Î');
+  clean = clean.replace(/\u009e/g, 'î');
+  clean = clean.replace(/\u008f/g, 'î');
+  clean = clean.replace(/\u0090/g, 'Î');
+  clean = clean.replace(/\u009f/g, 'î');
+  clean = clean.replace(/\u00ad/g, '');
+  
+  clean = clean.replace(/\u00c3\u008e/g, 'Î');
+  clean = clean.replace(/\u00c3\u00ae/g, 'î');
+  clean = clean.replace(/\u00c3\u0082/g, 'Â');
+  clean = clean.replace(/\u00c3\u00a2/g, 'â');
+  clean = clean.replace(/\u00c3\u0083/g, 'Ă');
+  clean = clean.replace(/\u00c3\u00a3/g, 'ă');
+  clean = clean.replace(/\u00c3\u0085/g, 'Ș');
+  clean = clean.replace(/\u00c3\u00ba/g, 'ș');
+  clean = clean.replace(/\u00c3\u00a5/g, 'ț');
+  
+  clean = clean.replace(/[\u007f-\u009f]([nN][a-zA-ZăâîșțĂÂÎȘȚ])/g, (m, p1) => {
+    const firstChar = p1[0];
+    const isUpper = firstChar === firstChar.toUpperCase();
+    return (isUpper ? 'Î' : 'î') + p1;
+  });
+
+  return clean;
+}
+
 function safeParseJson(input) {
   if (input == null) return null;
   if (typeof input !== 'string') return input;
@@ -100,9 +130,12 @@ function stripFallbackNote(text) {
 }
 
 function toFrontendQuestion(q) {
-  const questionText = q?.question ?? q?.text ?? q?.prompt ?? q?.title ?? '';
+  const questionText = cleanRomanianText(q?.question ?? q?.text ?? q?.prompt ?? q?.title ?? '');
   const rawOptions = q?.options ?? q?.answers ?? q?.choices ?? q?.variants ?? q?.responses ?? [];
-  const options = ensureOptionIds(rawOptions);
+  const options = ensureOptionIds(rawOptions).map(opt => ({
+    ...opt,
+    text: cleanRomanianText(opt.text)
+  }));
   
   let correctRaw =
     q?.correctAnswer ??
@@ -113,36 +146,35 @@ function toFrontendQuestion(q) {
     q?.correctIndex ??
     q?.solution;
 
-  let correctFeedbackStr = stripFallbackNote(q?.explanation ?? '');
-  let incorrectFeedbackStr = stripFallbackNote(q?.explanation ?? '');
+  let correctFeedbackStr = cleanRomanianText(stripFallbackNote(q?.explanation ?? ''));
+  let incorrectFeedbackStr = cleanRomanianText(stripFallbackNote(q?.explanation ?? ''));
 
-  
   if (!correctRaw && rawOptions.length > 0) {
     const correctIndex = rawOptions.findIndex(o => o.is_correct === true || o.isCorrect === true);
     if (correctIndex !== -1) {
       correctRaw = options[correctIndex].id; 
-      correctFeedbackStr = stripFallbackNote(rawOptions[correctIndex].feedback) || correctFeedbackStr;
+      correctFeedbackStr = cleanRomanianText(stripFallbackNote(rawOptions[correctIndex].feedback)) || correctFeedbackStr;
     }
     
     const wrongIndex = rawOptions.findIndex(o => o.is_correct === false || o.isCorrect === false);
     if (wrongIndex !== -1) {
-      incorrectFeedbackStr = stripFallbackNote(rawOptions[wrongIndex].feedback) || incorrectFeedbackStr;
+      incorrectFeedbackStr = cleanRomanianText(stripFallbackNote(rawOptions[wrongIndex].feedback)) || incorrectFeedbackStr;
     }
   }
 
   const feedback =
     q?.feedback && typeof q.feedback === 'object'
       ? {
-          correct: stripFallbackNote(q.feedback.correct ?? q.feedback.ok ?? q.feedback.right ?? correctFeedbackStr),
-          incorrect: stripFallbackNote(q.feedback.incorrect ?? q.feedback.ko ?? q.feedback.wrong ?? incorrectFeedbackStr),
+          correct: cleanRomanianText(stripFallbackNote(q.feedback.correct ?? q.feedback.ok ?? q.feedback.right ?? correctFeedbackStr)),
+          incorrect: cleanRomanianText(stripFallbackNote(q.feedback.incorrect ?? q.feedback.ko ?? q.feedback.wrong ?? incorrectFeedbackStr)),
         }
       : {
-          correct: stripFallbackNote(q?.feedbackCorrect ?? q?.explanationCorrect ?? q?.explanation ?? correctFeedbackStr),
-          incorrect: stripFallbackNote(q?.feedbackIncorrect ?? q?.explanationIncorrect ?? q?.explanation ?? incorrectFeedbackStr),
+          correct: cleanRomanianText(stripFallbackNote(q?.feedbackCorrect ?? q?.explanationCorrect ?? q?.explanation ?? correctFeedbackStr)),
+          incorrect: cleanRomanianText(stripFallbackNote(q?.feedbackIncorrect ?? q?.explanationIncorrect ?? q?.explanation ?? incorrectFeedbackStr)),
         };
 
   return {
-    question: String(questionText || ''),
+    question: questionText,
     options,
     correctAnswer: normalizeCorrectAnswer(correctRaw, options),
     feedback,

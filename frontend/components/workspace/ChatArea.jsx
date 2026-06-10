@@ -24,9 +24,39 @@ const deduplicateCitations = (rawText) => {
   return sanitizedText;
 };
 
+function cleanRomanianText(text) {
+  if (typeof text !== 'string') return text;
+  let clean = text.normalize('NFC');
+  
+  clean = clean.replace(/\u008e/g, 'Î');
+  clean = clean.replace(/\u009e/g, 'î');
+  clean = clean.replace(/\u008f/g, 'î');
+  clean = clean.replace(/\u0090/g, 'Î');
+  clean = clean.replace(/\u009f/g, 'î');
+  clean = clean.replace(/\u00ad/g, '');
+  
+  clean = clean.replace(/\u00c3\u008e/g, 'Î');
+  clean = clean.replace(/\u00c3\u00ae/g, 'î');
+  clean = clean.replace(/\u00c3\u0082/g, 'Â');
+  clean = clean.replace(/\u00c3\u00a2/g, 'â');
+  clean = clean.replace(/\u00c3\u0083/g, 'Ă');
+  clean = clean.replace(/\u00c3\u00a3/g, 'ă');
+  clean = clean.replace(/\u00c3\u0085/g, 'Ș');
+  clean = clean.replace(/\u00c3\u00ba/g, 'ș');
+  clean = clean.replace(/\u00c3\u00a5/g, 'ț');
+  
+  clean = clean.replace(/[\u007f-\u009f]([nN][a-zA-ZăâîșțĂÂÎȘȚ])/g, (m, p1) => {
+    const firstChar = p1[0];
+    const isUpper = firstChar === firstChar.toUpperCase();
+    return (isUpper ? 'Î' : 'î') + p1;
+  });
+
+  return clean;
+}
+
 function preprocessMarkdown(text) {
   if (!text) return "";
-  let processedText = text;
+  let processedText = cleanRomanianText(text);
 
   
   processedText = processedText.replace(/<ai_vision_description[^>]*>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
@@ -91,6 +121,7 @@ export const ChatArea = ({
   openDocumentPanel,
   documents,
   isReasoningEnabled,
+  setIsReasoningEnabled,
   loadMoreHistory,
   hasMore
 }) => {
