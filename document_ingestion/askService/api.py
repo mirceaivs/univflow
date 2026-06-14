@@ -7,6 +7,7 @@ from deps import get_embeddings_model, get_llm, get_pro_llm
 from config import INTERNAL_API_KEY
 from schemas import AskRequest, QuizRequest, Quiz
 from services import generate_interaction, clean_text_noise, get_vector_context, get_global_summary
+from langchain_core.messages import HumanMessage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -153,9 +154,20 @@ async def generate_quiz(
         vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id, threshold=0.5)
         all_docs = summary_docs + vector_docs
     else:
-        all_docs = await get_vector_context(pool, embeddings_model, payload.topic, course_id, threshold=0.44)
+        expansion_prompt = f"Studentul a cerut un test din subiectul: '{payload.topic}'. Rescrie și extinde acest subiect într-o expresie de căutare clară de 3-7 cuvinte, utilă pentru o căutare vectorială în documentele unui curs. Corectează greșelile de scriere și extinde abrevierile evidente (ex: dw -> data warehouse, db -> database, indecsi -> index-uri / baze de date). Returnează DOAR expresia de căutare, fără alte explicații sau ghilimele."
+        try:
+            expanded_topic_resp = await llm.ainvoke([HumanMessage(content=expansion_prompt)])
+            search_query = expanded_topic_resp.content.strip().strip('"\'')
+            if len(search_query) > 50:
+                search_query = payload.topic
+        except Exception:
+            search_query = payload.topic
+            
+        logger.info(f"Topic original: '{payload.topic}', Topic expandat: '{search_query}'")
+        
+        all_docs = await get_vector_context(pool, embeddings_model, search_query, course_id, threshold=0.65)
         if not all_docs:
-            logger.info(f"No specific chunks found for topic '{payload.topic}'. Falling back to general summary and concepts.")
+            logger.info(f"No specific chunks found for topic '{search_query}'. Falling back to general summary and concepts.")
             summary_docs = await get_global_summary(pool, course_id)
             vector_docs = await get_vector_context(pool, embeddings_model, "concepte fundamentale și idei principale", course_id, threshold=0.5)
             all_docs = summary_docs + vector_docs
@@ -179,16 +191,27 @@ async def generate_quiz(
     else:
         difficulty_guideline = "Pentru nivelul MEDIU, generează întrebări de înțelegere generală, asocieri logice standard sau interpretări de bază ale conceptelor."
 
-    prompt = f"""Ești un profesor universitar expert și un tutore de învățat. Pe baza contextului furnizat, generează un test grilă cu {payload.num_questions} întrebări despre subiectul: "{payload.topic}".
-    NIVEL DE DIFICULTATE: {payload.difficulty.upper()}. {difficulty_guideline}
-    REGULI STRICTE DE FORMATARE:
-    1. Fiecare întrebare trebuie să aibă EXACT {payload.options_per_question} variante de răspuns.
-    2. FEEDBACK OBLIGATORIU: Pentru fiecare variantă de răspuns (atât corecte, cât și greșite), completează câmpul 'feedback' detaliat.
-    3. OBLIGATORIU CRITIC: Amestecă ordinea răspunsurilor (NU pune mereu varianta corectă prima). Trebuie să fie distribuit aleator.
-    {multi_select_rule}
-    4. Toate informațiile trebuie extrase STRICT din contextul furnizat.
-    5. LEGĂTURĂ CU CONTEXTUL & FALLBACK: Toate întrebările trebuie să se bazeze EXCLUSIV pe contextul furnizat. Dacă subiectul solicitat ("{payload.topic}") NU este acoperit de contextul furnizat (este complet diferit sau irelevant), NU inventa informații din exterior. În schimb, revino la conceptele generale prezente în context (generează testul pe baza materiei disponibile) și adaugă o notă explicativă succintă la începutul câmpului 'explanation' al primei întrebări (de exemplu: "[Notă: Subiectul solicitat nu este acoperit de materialele cursului. Testul a fost generat pe baza conceptelor generale disponibile.]").
-    CONTEXT:\n{context_text}"""
+    prompt = f"""Ești un profesor universitar expert și un tutore de învățat.
+AI PRIMIT URMĂTORUL CONTEXT EXTRAS DIN CURS:
+{context_text}
+
+SARCINĂ: Generează un test grilă cu {payload.num_questions} întrebări.
+SUBIECT CERUT DE STUDENT: "{payload.topic}"
+NIVEL DE DIFICULTATE: {payload.difficulty.upper()}. {difficulty_guideline}
+
+ATENȚIE MAXIMĂ LA SUBIECT ȘI CONTEXT:
+Analizează dacă subiectul "{payload.topic}" (incluzând sinonime, traduceri sau abrevieri, cum ar fi "dw" pentru data warehouse, "indecsi" pentru index-uri) este acoperit în CONTEXTUL primit.
+- CAZUL A (Subiectul ESTE în context): Formulează întrebările STRICT din acel context, axate pe subiect.
+- CAZUL B (Subiectul ESTE COMPLET ABSENT / FIZICĂ CUANTICĂ etc): Dacă subiectul cerut nu are nicio legătură cu contextul (de exemplu e un domeniu total diferit), IGNORĂ subiectul cerut. Generează testul din conceptele generale prezente în contextul primit.
+OBLIGATORIU PENTRU CAZUL B: Pune exact acest text "[Notă: Subiectul solicitat nu este acoperit de materialele cursului. Testul a fost generat pe baza conceptelor generale disponibile.]" la începutul câmpului 'explanation' pentru PRIMA întrebare.
+
+REGULI STRICTE DE FORMATARE:
+1. Fiecare întrebare trebuie să aibă EXACT {payload.options_per_question} variante de răspuns.
+2. FEEDBACK OBLIGATORIU: Pentru fiecare variantă de răspuns (atât corecte, cât și greșite), completează câmpul 'feedback' detaliat.
+3. OBLIGATORIU CRITIC: Amestecă ordinea răspunsurilor (NU pune mereu varianta corectă prima). Distribuie răspunsurile corecte aleatoriu.
+{multi_select_rule}
+4. Toate informațiile trebuie extrase STRICT din contextul furnizat. Niciodată nu inventa informații externe.
+"""
     
     try:
         
