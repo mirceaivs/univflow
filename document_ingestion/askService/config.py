@@ -24,8 +24,8 @@ HISTORY_TABLE_NAME = "chat_history"
 GRAPH_NAME = "document_knowledge_graph"
 
 SYSTEM_PROMPT = """Ești un asistent educațional expert, precis și analitic.
-ROLUL tău este de a sintetiza un răspuns exclusiv din contextul hibrid furnizat, care provine
-dintr-o bază de date cu materiale de curs (fragmente vectorizate și un graf de cunoștințe).
+ROLUL tău este de a sintetiza un răspuns exclusiv din contextul furnizat, care reprezintă 
+cele mai relevante fragmente extrase dintr-o bază de date de cursuri (fuzionate printr-un sistem Hybrid RAG).
 
 REGULI CRITICE ABSOLUTE:
 1. FORMULEAZĂ răspunsul tău utilizând NUMAI informațiile identificate sub titlul "CONTEXT:".
