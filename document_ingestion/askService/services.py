@@ -36,74 +36,107 @@ async def extract_graph_keywords(llm, question: str) -> List[str]:
             pass
     return [word.lower() for word in question.split() if len(word) > 4][:3]
 
-async def get_graph_context(pool: AsyncConnectionPool, question: str, course_id: str, keywords: List[str] = None, reasoning_enabled: bool = False) -> str:
-    """Caută relații conceptuale în graful de cunoștințe folosind keywords pre-extrase."""
+async def get_graph_chunks(pool: AsyncConnectionPool, question: str, course_id: str, keywords: List[str] = None) -> List[Document]:
+    """Caută noduri legate în graf pe baza cuvintelor cheie și apoi caută textual (ILIKE) fragmentele asociate."""
     if not keywords:
-        return ""
+        return []
 
-    # Build conditions dynamically to avoid AGE any() WHERE syntax errors
     clean_keywords = [k.replace("'", "") for k in keywords]
+    conds = [f"toLower(n.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}'" for k in clean_keywords]
+    cond_str = " OR ".join(conds)
     
-    if reasoning_enabled:
-        conds = [f"toLower(n.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}'" for k in clean_keywords]
-        cond_str = " OR ".join(conds)
-        cypher_query = f"""
-            SELECT a::text
-            FROM cypher('{GRAPH_NAME}', $$
-                MATCH (n:Entity)-[r1]-(m1:Entity)-[r2]-(m2:Entity)-[r3]-(m3:Entity)
-                WHERE n.course_id = '{course_id}'
-                AND ({cond_str})
-                RETURN {{source: n.id, rel1: type(r1), node1: m1.id, rel2: type(r2), node2: m2.id, rel3: type(r3), target: m3.id}}
-            $$) AS (a agtype)
-            LIMIT 35;
-        """
-    else:
-        conds = [
-            f"toLower(n.id) CONTAINS '{k}' OR toLower(n.label) CONTAINS '{k}'"
-            for k in clean_keywords
-        ]
-        cond_str = " OR ".join(conds)
-        cypher_query = f"""
-            SELECT a::text
-            FROM cypher('{GRAPH_NAME}', $$
-                MATCH (n:Entity)-[r]-(m:Entity)
-                WHERE n.course_id = '{course_id}'
-                AND ({cond_str})
-                RETURN {{source: n.id, relation: type(r), target: m.id}}
-            $$) AS (a agtype)
-            LIMIT 25;
-        """
-
-    graph_results = []
+    cypher_query = f"""
+        SELECT a::text
+        FROM cypher('{GRAPH_NAME}', $$
+            MATCH (n:Entity)-[r]-(m:Entity)
+            WHERE n.course_id = '{course_id}'
+            AND ({cond_str})
+            RETURN m.id
+        $$) AS (a agtype)
+        LIMIT 10;
+    """
+    
+    expanded_concepts = set(clean_keywords)
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
-            await cur.execute(cypher_query)
-            rows = await cur.fetchall()
-            for row in rows:
-                try:
-                    parsed_edge = json.loads(row[0].replace("'", '"')) if isinstance(row[0], str) else row[0]
-                    if reasoning_enabled:
-                        src = parsed_edge.get("source", "N/A")
-                        rel1 = parsed_edge.get("rel1", "asociat")
-                        n1 = parsed_edge.get("node1", "N/A")
-                        rel2 = parsed_edge.get("rel2", "asociat")
-                        n2 = parsed_edge.get("node2", "N/A")
-                        rel3 = parsed_edge.get("rel3", "asociat")
-                        tgt = parsed_edge.get("target", "N/A")
-                        graph_results.append(f"[{src}] --> {rel1} --> [{n1}] --> {rel2} --> [{n2}] --> {rel3} --> [{tgt}]")
-                    else:
-                        src = parsed_edge.get("source", "N/A")
-                        rel = parsed_edge.get("relation", "asociat")
-                        tgt = parsed_edge.get("target", "N/A")
-                        graph_results.append(f"{src} --> {rel} --> {tgt}")
-                except Exception:
-                    continue
-                    
-    graph_results = list(dict.fromkeys(graph_results))
+            try:
+                await cur.execute(cypher_query)
+                rows = await cur.fetchall()
+                for row in rows:
+                    if row[0]:
+                        concept = row[0].strip('\"')
+                        if len(concept) > 3:
+                            expanded_concepts.add(concept.lower())
+            except Exception as e:
+                logger.error(f"Eroare cypher în get_graph_chunks: {e}")
+                
+    if not expanded_concepts:
+        return []
+
+    ilike_conditions = []
+    params = []
+    for concept in list(expanded_concepts)[:10]:
+        ilike_conditions.append("content ILIKE %s")
+        params.append(f"%{concept}%")
     
-    if graph_results:
-        return "RELAȚII CONCEPTUALE EXTRASE DIN GRAF:\n" + "\n".join(graph_results)
-    return ""
+    if not ilike_conditions:
+        return []
+        
+    ilike_str = " OR ".join(ilike_conditions)
+    params.insert(0, course_id)
+    
+    query = f"""
+        SELECT chunk_id, content, metadata
+        FROM rag_system.document_chunks
+        WHERE metadata->>'course_id' = %s
+        AND metadata->>'is_global_summary' IS DISTINCT FROM 'True'
+        AND ({ilike_str})
+        LIMIT 20
+    """
+    
+    results = []
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(query, tuple(params))
+            rows = await cur.fetchall()
+            
+            for row in rows:
+                content = row[1]
+                score = sum(1 for c in expanded_concepts if c in content.lower())
+                meta = dict(row[2]) if row[2] else {}
+                meta["chunk_id"] = str(row[0])
+                meta["graph_score"] = score
+                results.append((score, Document(page_content=content, metadata=meta)))
+                
+    results.sort(key=lambda x: x[0], reverse=True)
+    return [res[1] for res in results]
+
+def reciprocal_rank_fusion(vector_list: List[Document], graph_list: List[Document], k: int = 60, top_n: int = 15) -> List[Document]:
+    """Aplică Reciprocal Rank Fusion pe două liste de documente care conțin chunk_id în metadata."""
+    rrf_scores = {}
+    docs_map = {}
+    
+    for rank, doc in enumerate(vector_list):
+        c_id = doc.metadata.get("chunk_id")
+        if not c_id:
+            continue
+        docs_map[c_id] = doc
+        rrf_scores[c_id] = rrf_scores.get(c_id, 0.0) + 1.0 / (k + rank + 1)
+        
+    for rank, doc in enumerate(graph_list):
+        c_id = doc.metadata.get("chunk_id")
+        if not c_id:
+            continue
+        docs_map[c_id] = doc
+        rrf_scores[c_id] = rrf_scores.get(c_id, 0.0) + 1.0 / (k + rank + 1)
+        
+    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
+    
+    fused_docs = []
+    for c_id in sorted_ids[:top_n]:
+        fused_docs.append(docs_map[c_id])
+        
+    return fused_docs
 
 async def rewrite_question_with_context(llm, question: str, chat_history: List[Any]) -> str:
     """Rescrie întrebarea utilizatorului încorporând contextul conversațional."""
@@ -135,7 +168,7 @@ async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "Verte
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("""
-                SELECT content, metadata, embedding <=> %s::vector AS distance
+                SELECT chunk_id, content, metadata, embedding <=> %s::vector AS distance
                 FROM rag_system.document_chunks 
                 WHERE metadata->>'course_id' = %s 
                 AND metadata->>'is_global_summary' IS DISTINCT FROM 'True'
@@ -143,11 +176,14 @@ async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "Verte
                 LIMIT 20
             """, (str(query_embedding), course_id, str(query_embedding)))
             rows = await cur.fetchall()
-            return [
-                Document(page_content=row[0], metadata=row[1]) 
-                for row in rows 
-                if row[2] < threshold and len(row[0].strip()) > 50
-            ]
+            
+            results = []
+            for row in rows:
+                if row[3] < threshold and len(row[1].strip()) > 50:
+                    meta = dict(row[2]) if row[2] else {}
+                    meta["chunk_id"] = str(row[0])
+                    results.append(Document(page_content=row[1], metadata=meta))
+            return results
 
 _global_summary_cache = {}
 CACHE_TTL = 300
@@ -229,15 +265,17 @@ async def generate_interaction(
 
     async def get_graph_pipeline():
         g_keywords = await extract_graph_keywords(llm, question)
-        return await get_graph_context(pool, question, course_id, keywords=g_keywords, reasoning_enabled=reasoning_enabled)
+        return await get_graph_chunks(pool, question, course_id, keywords=g_keywords)
 
     task_vector = asyncio.create_task(get_vector_pipeline())
     task_graph = asyncio.create_task(get_graph_pipeline())
     task_summary = asyncio.create_task(get_global_summary(pool, course_id))
 
-    vector_results, graph_text, summary_results = await asyncio.gather(
+    vector_results, graph_results, summary_results = await asyncio.gather(
         task_vector, task_graph, task_summary
     )
+    
+    fused_results = reciprocal_rank_fusion(vector_results, graph_results, k=60, top_n=15)
     
     citations_collection = []
     filtered_citations = []
@@ -259,10 +297,10 @@ async def generate_interaction(
             current_source_idx += 1
 
     
-    if vector_results:
-        hybrid_knowledge_body += "--- FRAGMENTE SPECIFICE DIN MATERIE ---\n"
+    if fused_results:
+        hybrid_knowledge_body += "--- FRAGMENTE RELEVANTE (RRF) ---\n"
         compiled_texts = []
-        for doc in vector_results:
+        for doc in fused_results:
             compiled_texts.append(f"SURSA [{current_source_idx}]:\n{doc.page_content}")
             meta = doc.metadata
             citations_collection.append({
@@ -274,17 +312,6 @@ async def generate_interaction(
             })
             current_source_idx += 1
         hybrid_knowledge_body += "\n\n".join(compiled_texts)
-    
-    
-    if graph_text: 
-        hybrid_knowledge_body += f"\n\n--- RELAȚII CONCEPTUALE ---\nSURSA [{current_source_idx}] (GRAF DE CUNOȘTINȚE):\n{graph_text}"
-        citations_collection.append({
-            "id": current_source_idx,
-            "source_file": "Graf de Cunoștințe (AI)",
-            "header": "Relații Conceptuale",
-            "course_id": course_id,
-            "text_extras": graph_text
-        })
 
     chain = RAG_PROMPT | llm
     full_ai_response = ""
