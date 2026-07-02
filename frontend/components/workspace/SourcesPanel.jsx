@@ -43,6 +43,8 @@ const cleanRawText = (rawText) => {
   text = text.replace(gcsRegex, "");
 
   text = text.replace(/<ai_vision_description[^>]*>[\s\S]*?(<\/ai_vision_description>|$)/gi, "");
+  text = text.replace(/^[\s\S]*?<\/ai_vision_description>/gi, "");
+  text = text.replace(/<\/?ai_vision_description[^>]*>/gi, "");
   text = text.replace(/\*\*Descriere Vizuală\s*\(Generată\s*AI\):\*\*[\s\S]*?(?=(\n\s*#{1,6}|\n\s*\*\*|$))/gi, "");
   text = text.replace(/[-*#_]*\s*Start of picture text\s*[-*#_]*/gi, "");
   text = text.replace(/[-*#_]*\s*End of picture text\s*[-*#_]*/gi, "");

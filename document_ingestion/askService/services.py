@@ -171,7 +171,6 @@ async def get_vector_context(pool: AsyncConnectionPool, embeddings_model: "Verte
                 SELECT chunk_id, content, metadata, embedding <=> %s::vector AS distance
                 FROM rag_system.document_chunks 
                 WHERE metadata->>'course_id' = %s 
-                AND metadata->>'is_global_summary' IS DISTINCT FROM 'True'
                 ORDER BY embedding <=> %s::vector 
                 LIMIT 20
             """, (str(query_embedding), course_id, str(query_embedding)))
@@ -269,10 +268,9 @@ async def generate_interaction(
 
     task_vector = asyncio.create_task(get_vector_pipeline())
     task_graph = asyncio.create_task(get_graph_pipeline())
-    task_summary = asyncio.create_task(get_global_summary(pool, course_id))
 
-    vector_results, graph_results, summary_results = await asyncio.gather(
-        task_vector, task_graph, task_summary
+    vector_results, graph_results = await asyncio.gather(
+        task_vector, task_graph
     )
     
     fused_results = reciprocal_rank_fusion(vector_results, graph_results, k=60, top_n=15)
@@ -283,32 +281,24 @@ async def generate_interaction(
     current_source_idx = 1
 
     
-    if summary_results:
-        hybrid_knowledge_body += "--- REZUMAT GLOBAL CURS (VIZIUNE DE ANSAMBLU) ---\n"
-        for summary_doc in summary_results:
-            hybrid_knowledge_body += f"SURSA [{current_source_idx}]:\n{summary_doc.page_content}\n\n"
-            citations_collection.append({
-                "id": current_source_idx,
-                "source_file": summary_doc.metadata.get("source_file", "Rezumat Global"), 
-                "header": summary_doc.metadata.get("header", "Viziune de Ansamblu"), 
-                "course_id": course_id,
-                "text_extras": re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', summary_doc.page_content, flags=re.DOTALL | re.IGNORECASE)
-            })
-            current_source_idx += 1
-
-    
     if fused_results:
         hybrid_knowledge_body += "--- FRAGMENTE RELEVANTE (RRF) ---\n"
         compiled_texts = []
         for doc in fused_results:
             compiled_texts.append(f"SURSA [{current_source_idx}]:\n{doc.page_content}")
             meta = doc.metadata
+            
+            # Clean AI vision description safely from citations
+            clean_page_content = re.sub(r'<ai_vision_description>.*?(?:</ai_vision_description>|$)', '', doc.page_content, flags=re.DOTALL | re.IGNORECASE)
+            clean_page_content = re.sub(r'^.*?</ai_vision_description>', '', clean_page_content, flags=re.DOTALL | re.IGNORECASE)
+            clean_page_content = re.sub(r'</?ai_vision_description>', '', clean_page_content, flags=re.IGNORECASE)
+            
             citations_collection.append({
                 "id": current_source_idx,
                 "source_file": meta.get("source_file", "Fișier necunoscut"), 
                 "header": meta.get("header", "Secțiune generică"), 
                 "course_id": course_id,
-                "text_extras": re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', doc.page_content, flags=re.DOTALL | re.IGNORECASE)
+                "text_extras": clean_page_content
             })
             current_source_idx += 1
         hybrid_knowledge_body += "\n\n".join(compiled_texts)
@@ -369,7 +359,9 @@ def clean_text_noise(text: str) -> str:
     if not text: 
         return ""
         
-    text = re.sub(r'<ai_vision_description>.*?</ai_vision_description>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<ai_vision_description>.*?(?:</ai_vision_description>|$)', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'^.*?</ai_vision_description>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'</?ai_vision_description>', '', text, flags=re.IGNORECASE)
     
     text = re.sub(r'[^\w\s\.,;:\?!\[\]\(\)\-\+\*\/\\%="\'\|#_`<>]', '', text)
     
