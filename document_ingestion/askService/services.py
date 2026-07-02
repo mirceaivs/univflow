@@ -363,6 +363,9 @@ def clean_text_noise(text: str) -> str:
     text = re.sub(r'^.*?</ai_vision_description>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</?ai_vision_description>', '', text, flags=re.IGNORECASE)
     
+    # Strip underline tags
+    text = re.sub(r'</?u>', '', text, flags=re.IGNORECASE)
+    
     text = re.sub(r'[^\w\s\.,;:\?!\[\]\(\)\-\+\*\/\\%="\'\|#_`<>]', '', text)
     
     text = re.sub(r'[ \t]{2,}', ' ', text)
